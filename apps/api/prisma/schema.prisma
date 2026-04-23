@@ -68,10 +68,30 @@ model User {
   orders         Order[]   @relation("CustomerOrders")
   approvedOrders Order[]   @relation("ApproverOrders")
   auditLogs      AuditLog[]
+  invitations    Invitation[] @relation("CreatedInvitations")
 
   @@index([email])
   @@index([role])
   @@map("users")
+}
+
+model Invitation {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  role            Role     @default(STAFF)
+  email           String?
+  isUsed          Boolean  @default(false)
+  usedBy          String?
+  usedAt          DateTime?
+  expiresAt       DateTime
+  createdBy       String
+  createdByUser   User     @relation("CreatedInvitations", fields: [createdBy], references: [id])
+  createdAt       DateTime @default(now())
+
+  @@index([code])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("invitations")
 }
 
 model Agency {

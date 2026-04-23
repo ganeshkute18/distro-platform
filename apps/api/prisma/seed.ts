@@ -102,11 +102,66 @@ async function main() {
     },
   });
 
+  // Create Sample Invitations for Testing
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  await prisma.invitation.deleteMany({}); // Clear existing
+  
+  const invitation1 = await prisma.invitation.create({
+    data: {
+      code: 'STAFF_ABC123_TEST001',
+      role: Role.STAFF,
+      email: 'newstaff@example.com',
+      expiresAt: nextWeek,
+      createdBy: owner.id,
+      isUsed: false,
+    },
+  });
+
+  const invitation2 = await prisma.invitation.create({
+    data: {
+      code: 'STAFF_DEF456_TEST002',
+      role: Role.STAFF,
+      expiresAt: tomorrow, // Expires tomorrow
+      createdBy: owner.id,
+      isUsed: false,
+    },
+  });
+
   console.log('✅ Seed complete!');
-  console.log('\n📋 Login credentials:');
-  console.log('  Owner:    owner@distro.com    / Password@123');
-  console.log('  Staff:    staff@distro.com    / Password@123');
-  console.log('  Customer: customer@distro.com / Password@123');
+  console.log('\n📋 Login Credentials for Testing:');
+  console.log('\n  Owner Account:');
+  console.log('    📧 Email:    owner@distro.com');
+  console.log('    🔑 Password: Password@123');
+  console.log('    🎯 Access:   Full system, user management, invitations');
+  console.log('\n  Staff Account:');
+  console.log('    📧 Email:    staff@distro.com');
+  console.log('    🔑 Password: Password@123');
+  console.log('    🎯 Access:   Orders, inventory, reports');
+  console.log('\n  Customer Account:');
+  console.log('    📧 Email:    customer@distro.com');
+  console.log('    🔑 Password: Password@123');
+  console.log('    🎯 Access:   Catalog, orders, profile');
+
+  console.log('\n📨 Sample Invitation Codes (For Staff Signup):');
+  console.log(`    1️⃣  ${invitation1.code}`);
+  console.log(`        📧 Pre-assigned email: ${invitation1.email}`);
+  console.log(`        ⏰ Expires: ${invitation1.expiresAt.toDateString()}`);
+  console.log(`\n    2️⃣  ${invitation2.code}`);
+  console.log(`        📧 Any email can use this`);
+  console.log(`        ⏰ Expires: ${invitation2.expiresAt.toDateString()} (Tomorrow)`);
+
+  console.log('\n🌐 API Endpoints:');
+  console.log('   POST /api/v1/auth/login               - Login');
+  console.log('   POST /api/v1/auth/signup/customer     - Customer Signup (Public)');
+  console.log('   POST /api/v1/auth/signup/staff        - Staff Signup (Invitation Required)');
+  console.log('   POST /api/v1/auth/invitations/generate - Generate Invitation (Owner Only)');
+  console.log('   GET  /api/v1/auth/invitations         - List Invitations (Owner Only)');
+  console.log('\n🚀 Get Swagger Docs at: http://localhost:4000/api/docs');
 }
 
 main()

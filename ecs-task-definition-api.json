@@ -1,0 +1,65 @@
+{
+  "family": "distro-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "distro-api",
+      "image": "REPLACE_WITH_ECR_API_IMAGE",
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "hostPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "API_PORT",
+          "value": "4000"
+        },
+        {
+          "name": "API_PREFIX",
+          "value": "api/v1"
+        },
+        {
+          "name": "JWT_ACCESS_EXPIRES_IN",
+          "value": "15m"
+        },
+        {
+          "name": "JWT_REFRESH_EXPIRES_IN",
+          "value": "7d"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:REPLACE_WITH_ACCOUNT_ID:secret:distro/database-url"
+        },
+        {
+          "name": "JWT_ACCESS_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:REPLACE_WITH_ACCOUNT_ID:secret:distro/jwt-access-secret"
+        },
+        {
+          "name": "JWT_REFRESH_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:REPLACE_WITH_ACCOUNT_ID:secret:distro/jwt-refresh-secret"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/distro-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "executionRoleArn": "arn:aws:iam::REPLACE_WITH_ACCOUNT_ID:role/ecsTaskExecutionRole"
+}
