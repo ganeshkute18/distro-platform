@@ -1,0 +1,74 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: distro_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-distro_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-distro_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-distro_user}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - distro_net
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+      target: production
+    container_name: distro_api_prod
+    restart: always
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - distro_net
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+      target: production
+    container_name: distro_web_prod
+    restart: always
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks:
+      - distro_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: distro_nginx
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - distro_net
+
+volumes:
+  postgres_data:
+
+networks:
+  distro_net:
+    driver: bridge

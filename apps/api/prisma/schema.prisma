@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  STAFF
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PROCESSING
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum UnitType {
+  BOX
+  CRATE
+  PACKET
+  PIECE
+  DOZEN
+  KG
+  LITRE
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_DEACTIVATED
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+  PRODUCT_DELETED
+  ORDER_PLACED
+  ORDER_APPROVED
+  ORDER_REJECTED
+  ORDER_STATUS_CHANGED
+  INVENTORY_ADJUSTED
+  AGENCY_CREATED
+  AGENCY_UPDATED
+  LOGIN
+  LOGOUT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?  @unique
+  name          String
+  passwordHash  String
+  role          Role     @default(CUSTOMER)
+  isActive      Boolean  @default(true)
+  businessName  String?
+  address       String?
+  refreshToken  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orders         Order[]   @relation("CustomerOrders")
+  approvedOrders Order[]   @relation("ApproverOrders")
+  auditLogs      AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Agency {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  logoUrl      String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@map("agencies")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  imageUrl    String?
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  sku          String   @unique
+  name         String
+  description  String?
+  imageUrls    String[]
+  unitType     UnitType @default(BOX)
+  unitsPerCase Int      @default(1)
+  pricePerUnit Int
+  taxPercent   Decimal  @default(0) @db.Decimal(5, 2)
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  minOrderQty  Int      @default(1)
+  maxOrderQty  Int?
+
+  agencyId   String
+  agency     Agency   @relation(fields: [agencyId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  inventory  Inventory?
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([categoryId])
+  @@index([sku])
+  @@index([isActive])
+  @@map("products")
+}
+
+model Inventory {
+  id                String   @id @default(cuid())
+  productId         String   @unique
+  product           Product  @relation(fields: [productId], references: [id])
+  totalStock        Int      @default(0)
+  reservedStock     Int      @default(0)
+  lowStockThreshold Int      @default(10)
+  updatedAt         DateTime @updatedAt
+
+  adjustments InventoryAdjustment[]
+
+  @@map("inventory")
+}
+
+model InventoryAdjustment {
+  id          String    @id @default(cuid())
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  delta       Int
+  reason      String
+  orderId     String?
+  performedBy String
+  createdAt   DateTime  @default(now())
+
+  @@index([inventoryId])
+  @@map("inventory_adjustments")
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNumber         String      @unique
+  customerId          String
+  customer            User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  status              OrderStatus @default(PENDING_APPROVAL)
+  totalAmount         Int
+  taxAmount           Int         @default(0)
+  notes               String?
+  deliveryDate        DateTime?
+  deliveryAddress     String?
+  rejectionReason     String?
+  isPartialFulfillment Boolean    @default(false)
+  parentOrderId       String?
+
+  approvedById String?
+  approvedBy   User?   @relation("ApproverOrders", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  pendingAt     DateTime  @default(now())
+  processingAt  DateTime?
+  dispatchedAt  DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String  @id @default(cuid())
+  orderId      String
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  quantity     Int
+  unitPrice    Int
+  taxPercent   Decimal @db.Decimal(5, 2)
+  subtotal     Int
+  fulfilledQty Int     @default(0)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id         String      @id @default(cuid())
+  orderId    String
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  changedBy  String
+  note       String?
+  createdAt  DateTime    @default(now())
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  message     String
+  type        String
+  referenceId String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  action    AuditAction
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
