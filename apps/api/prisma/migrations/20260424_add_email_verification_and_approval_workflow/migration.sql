@@ -1,7 +1,5 @@
--- AlterEnum
-ALTER TYPE "ApprovalStatus" ADD VALUE 'PENDING';
-ALTER TYPE "ApprovalStatus" ADD VALUE 'APPROVED';
-ALTER TYPE "ApprovalStatus" ADD VALUE 'REJECTED';
+-- CreateEnum
+CREATE TYPE "ApprovalStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 
 -- AlterTable
 ALTER TABLE "users" ADD COLUMN "emailVerified" BOOLEAN NOT NULL DEFAULT false,

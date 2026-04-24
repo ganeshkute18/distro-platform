@@ -16,12 +16,59 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
+const DEV_ACCOUNTS = [
+  {
+    role: 'Owner',
+    emoji: '👑',
+    email: 'owner@distro.com',
+    password: 'Password@123',
+    color: '#7c3aed',
+    bg: '#f5f3ff',
+    border: '#c4b5fd',
+    desc: 'Full access · Dashboard · User management',
+  },
+  {
+    role: 'Staff',
+    emoji: '🧑‍💼',
+    email: 'staff@distro.com',
+    password: 'Password@123',
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#67e8f9',
+    desc: 'Orders · Inventory · Reports',
+  },
+  {
+    role: 'Customer',
+    emoji: '🛒',
+    email: 'customer@distro.com',
+    password: 'Password@123',
+    color: '#059669',
+    bg: '#ecfdf5',
+    border: '#6ee7b7',
+    desc: 'Browse catalog · Place orders',
+  },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const [filledEmail, setFilledEmail] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+
+  function fillAccount(email: string, password: string) {
+    setValue('email', email, { shouldValidate: true });
+    setValue('password', password, { shouldValidate: true });
+    setFilledEmail(email);
+    setTimeout(() => setFilledEmail(null), 2000);
+  }
 
   async function onSubmit(data: FormData) {
     try {
@@ -45,9 +92,10 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md space-y-4">
+
         {/* Logo */}
-        <div className="mb-8 text-center">
+        <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
             <Package className="h-7 w-7 text-primary-foreground" />
           </div>
@@ -55,7 +103,53 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">B2B Distribution Platform</p>
         </div>
 
-        {/* Card */}
+        {/* ───── Dev Quick-Access Panel (hidden in production) ───── */}
+        {process.env.NODE_ENV === 'development' && (
+        <div className="rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 p-4">
+          <p className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700">
+            🔧 Dev Test Accounts · Click to auto-fill
+          </p>
+          <div className="space-y-2">
+            {DEV_ACCOUNTS.map((acc) => (
+              <button
+                key={acc.role}
+                type="button"
+                id={`dev-fill-${acc.role.toLowerCase()}`}
+                onClick={() => fillAccount(acc.email, acc.password)}
+                style={{
+                  borderColor: filledEmail === acc.email ? acc.color : acc.border,
+                  backgroundColor: filledEmail === acc.email ? acc.bg : 'white',
+                }}
+                className="flex w-full items-center gap-3 rounded-lg border-2 px-3 py-2.5 text-left transition-all duration-150 hover:shadow-md active:scale-[0.99]"
+              >
+                <span className="text-2xl leading-none">{acc.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold" style={{ color: acc.color }}>
+                      {acc.role}
+                    </span>
+                    {filledEmail === acc.email && (
+                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-semibold text-green-700">
+                        ✓ Filled!
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">{acc.email}</p>
+                  <p className="truncate text-xs text-muted-foreground opacity-70">{acc.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-center text-xs text-amber-600">
+            All accounts use password:{' '}
+            <code className="rounded bg-amber-100 px-1.5 py-0.5 font-mono font-bold text-amber-800">
+              Password@123
+            </code>
+          </p>
+        </div>
+        )}
+
+        {/* ───── Login Form ───── */}
         <div className="rounded-2xl border bg-card p-8 shadow-sm">
           <h2 className="mb-6 text-xl font-semibold">Sign in to your account</h2>
 
@@ -96,6 +190,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
+              id="login-submit-btn"
               disabled={isSubmitting}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
             >
@@ -103,14 +198,8 @@ export default function LoginPage() {
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
-
-          <div className="mt-6 rounded-lg bg-muted p-3 text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">Demo credentials:</p>
-            <p>Owner: owner@distro.com / Password@123</p>
-            <p>Staff: staff@distro.com / Password@123</p>
-            <p>Customer: customer@distro.com / Password@123</p>
-          </div>
         </div>
+
       </div>
     </div>
   );

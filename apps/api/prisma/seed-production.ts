@@ -125,7 +125,7 @@ async function main() {
       sku: 'HUL-DOVE-001',
       name: 'Dove Shampoo 400ml',
       description: 'Moisturizing shampoo for smooth hair',
-      unitType: UnitType.BOTTLE,
+      unitType: UnitType.LITRE,
       unitsPerCase: 12,
       pricePerUnit: 25000, // ₹250
       taxPercent: 18,

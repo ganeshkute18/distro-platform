@@ -162,9 +162,6 @@ async function main() {
       isUsed: false,
     },
   });
-      isUsed: false,
-    },
-  });
 
   console.log('✅ Seed complete!\n');
   console.log('🚨 WARNING: This is test data. Remove before production!');

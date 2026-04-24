@@ -10,8 +10,11 @@
     "type-check": "tsc --noEmit",
     "test": "jest",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:generate": "prisma generate"
+    "db:seed:prod": "ts-node prisma/seed-production.ts",
+    "db:setup-owner": "ts-node prisma/setup-owner.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.8",
@@ -55,5 +58,8 @@
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
+  },
+  "_productionNotes": {
+    "deploy": "npm run db:migrate:deploy && npm run db:seed:prod && npm run db:setup-owner"
   }
 }

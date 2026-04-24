@@ -2,10 +2,16 @@ node_modules
 .env
 .env.local
 .env.*.local
+apps/api/.env
+apps/web/.env
 dist
 .next
 *.log
 .turbo
 .DS_Store
+Thumbs.db
 coverage
 prisma/migrations/dev.db
+
+# Temporary dev scripts — never commit
+apps/api/prisma/fix-users.ts
