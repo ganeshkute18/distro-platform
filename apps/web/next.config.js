@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Vercel deploys Next.js natively — no standalone needed
+  // If using Docker (Render/self-hosted), uncomment:
+  // output: 'standalone',
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'res.cloudinary.com' },

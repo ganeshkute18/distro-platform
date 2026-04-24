@@ -13,7 +13,8 @@ async function bootstrap() {
   });
 
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('API_PORT', 4000);
+  // Render.com injects $PORT — use that first, then API_PORT, then 4000
+  const port = process.env.PORT || configService.get<number>('API_PORT', 4000);
   const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:3000');
 
   // Middleware
