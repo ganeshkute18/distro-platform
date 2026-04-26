@@ -19,6 +19,10 @@
     "prettier": "^3.2.5",
     "turbo": "^1.13.4"
   },
+  "engines": {
+    "node": "20.x",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "tailwindcss-animate": "^1.0.7",
     "autoprefixer": "^10.4.19",
