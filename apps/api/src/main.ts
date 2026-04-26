@@ -7,16 +7,21 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import * as cookieParser from 'cookie-parser';
 
-const DEFAULT_DATABASE_URL =
-  'postgresql://distro_user:distro_pass@localhost:5432/distro_platform?schema=public';
+function ensureDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (databaseUrl) return;
+
+  throw new Error(
+    [
+      'DATABASE_URL is required and cannot be empty.',
+      'For Railway, use the PostgreSQL connection string from the Postgres service Variables tab.',
+      'Example format: postgresql://postgres:<PASSWORD>@<HOST>:<PORT>/railway?sslmode=require',
+    ].join(' '),
+  );
+}
 
 async function bootstrap() {
-  if (!process.env.DATABASE_URL?.trim()) {
-    process.env.DATABASE_URL = DEFAULT_DATABASE_URL;
-    console.warn(
-      `DATABASE_URL was missing or empty. Falling back to default local PostgreSQL URL: ${DEFAULT_DATABASE_URL}`,
-    );
-  }
+  ensureDatabaseUrl();
 
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
