@@ -31,6 +31,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install OpenSSL — required by Prisma engine binaries at runtime
+RUN apk add --no-cache openssl
+
 # Copy workspace manifests for production install
 COPY package.json package-lock.json ./
 COPY apps/api/package.json ./apps/api/
