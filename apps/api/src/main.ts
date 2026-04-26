@@ -7,7 +7,17 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import * as cookieParser from 'cookie-parser';
 
+const DEFAULT_DATABASE_URL =
+  'postgresql://distro_user:distro_pass@localhost:5432/distro_platform?schema=public';
+
 async function bootstrap() {
+  if (!process.env.DATABASE_URL?.trim()) {
+    process.env.DATABASE_URL = DEFAULT_DATABASE_URL;
+    console.warn(
+      `DATABASE_URL was missing or empty. Falling back to default local PostgreSQL URL: ${DEFAULT_DATABASE_URL}`,
+    );
+  }
+
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
