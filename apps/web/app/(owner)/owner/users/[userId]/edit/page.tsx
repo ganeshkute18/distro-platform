@@ -1,3 +1,3 @@
 'use client';
-// Edit user page reuses the same form — productId is detected via useParams in new/page
-export { default } from '@/app/(owner)/owner/users/new/page';
+// Edit user page — reuses the new/page form, which detects edit mode via useParams
+export { default } from '../../new/page';

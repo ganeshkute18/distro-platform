@@ -1,3 +1,3 @@
 'use client';
-// Edit agency page reuses the same form — agencyId is detected via useParams in new/page
-export { default } from '@/app/(owner)/owner/agencies/new/page';
+// Edit agency page — reuses the new/page form, which detects edit mode via useParams
+export { default } from '../../new/page';

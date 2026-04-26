@@ -2,11 +2,11 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/store/auth.store';
+import { useAuthStore } from '../store/auth.store';
 
 /**
- * Root page — redirects to the correct dashboard based on the logged-in role.
- * Uses client-side auth store (localStorage-backed) instead of server cookies.
+ * Root page — redirects to the correct dashboard based on logged-in role.
+ * Uses client-side auth store (localStorage-backed).
  */
 export default function RootPage() {
   const router = useRouter();
@@ -25,6 +25,5 @@ export default function RootPage() {
     router.replace(redirectMap[user.role] ?? '/login');
   }, [user, router]);
 
-  // Show nothing while redirecting
   return null;
 }
