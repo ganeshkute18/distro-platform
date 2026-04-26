@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -31,6 +32,15 @@ async function bootstrap() {
   // Render.com injects $PORT — use that first, then API_PORT, then 4000
   const port = process.env.PORT || configService.get<number>('API_PORT', 4000);
   const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:3000');
+
+  // Explicit platform-level healthcheck path (not behind API version prefix).
+  app.use('/health', (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: 'ok',
+      service: 'api',
+      timestamp: new Date().toISOString(),
+    });
+  });
 
   // Middleware
   app.use(cookieParser());
