@@ -58,8 +58,9 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  await app.listen(port);
-  console.log(`🚀 API running on http://localhost:${port}/api/v1`);
+  // '0.0.0.0' is required by Railway, Render, and other cloud platforms
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 API running on port ${port} (${process.env.NODE_ENV || 'development'})`);
   if (process.env.NODE_ENV !== 'production') {
     console.log(`📚 Swagger docs at http://localhost:${port}/api/docs`);
   }
