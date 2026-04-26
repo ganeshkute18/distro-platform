@@ -7,7 +7,22 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import * as cookieParser from 'cookie-parser';
 
+function ensureDatabaseUrl() {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (databaseUrl) return;
+
+  throw new Error(
+    [
+      'DATABASE_URL is required and cannot be empty.',
+      'For Railway, use the PostgreSQL connection string from the Postgres service Variables tab.',
+      'Example format: postgresql://postgres:<PASSWORD>@<HOST>:<PORT>/railway?sslmode=require',
+    ].join(' '),
+  );
+}
+
 async function bootstrap() {
+  ensureDatabaseUrl();
+
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });

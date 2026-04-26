@@ -364,7 +364,15 @@ NODE_ENV: production
 
 **Q: Do I need to add DATABASE_URL?**
 ```
-A: NO! Railway injects it automatically.
+A: Usually NO — Railway injects it automatically if your API service
+   is linked to a Railway PostgreSQL service.
+
+   If Railway asks for it manually, copy the DATABASE_URL value from:
+   Postgres service → Variables tab
+   Then paste into API service variable.
+
+   Expected format:
+   postgresql://postgres:<PASSWORD>@<HOST>:<PORT>/railway?sslmode=require
 ```
 
 **Q: Can I change the test credentials?**
@@ -403,4 +411,3 @@ Follow the steps above and let me know:
 3. Which variable you're having issues with?
 
 I'll help you debug! 💪
-
