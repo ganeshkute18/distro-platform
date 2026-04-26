@@ -30,7 +30,7 @@ export default function OwnerDashboardPage() {
           label="Pending Approvals"
           value={stats?.pendingApproval ?? 0}
           icon={<Clock className="h-4 w-4" />}
-          className={stats?.pendingApproval > 0 ? 'border-yellow-200' : ''}
+          className={(stats?.pendingApproval ?? 0) > 0 ? 'border-yellow-200' : ''}
         />
         <StatCard
           label="Orders Today"

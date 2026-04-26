@@ -1,3 +1,3 @@
 'use client';
-// Edit product page re-exports the same form with productId in params
-export { default } from '../../new/page';
+// Edit product page reuses the same form — productId is detected via useParams in new/page
+export { default } from '@/app/(owner)/owner/products/new/page';

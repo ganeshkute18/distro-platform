@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 export default function NewUserPage() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm({ defaultValues: { role: 'CUSTOMER' } });
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<Record<string, unknown>>({ defaultValues: { role: 'CUSTOMER' } });
 
   async function onSubmit(data: Record<string, unknown>) {
     try { await api.post('/users', data); toast.success('User created!'); qc.invalidateQueries({ queryKey: ['users'] }); router.push('/owner/users'); }
