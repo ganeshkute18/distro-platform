@@ -5,7 +5,7 @@
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
-    "start": "node dist/main.js",
+    "start": "node dist/src/main.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "test": "jest",
@@ -58,7 +58,8 @@
     "typescript": "^5.4.5"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "schema": "./prisma/schema.prisma"
   },
   "_productionNotes": {
     "deploy": "npm run db:migrate:deploy && npm run db:seed:prod && npm run db:setup-owner"

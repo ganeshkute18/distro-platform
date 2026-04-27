@@ -52,4 +52,4 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 EXPOSE 4000
 
 # Run migrations then start the server (use root-relative paths)
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=./apps/api/prisma/schema.prisma && node ./apps/api/dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./apps/api/prisma/schema.prisma && node ./apps/api/dist/src/main.js"]
