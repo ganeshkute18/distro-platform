@@ -31,8 +31,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install OpenSSL — required by Prisma engine binaries at runtime
-RUN apk add --no-cache openssl
+# Install OpenSSL (Prisma) + build tools (bcrypt native)
+RUN apk add --no-cache openssl python3 make g++
 
 # Copy workspace manifests for production install
 COPY package.json package-lock.json ./
@@ -40,7 +40,8 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Install production deps only
-RUN npm ci --omit=dev --ignore-scripts \
+# IMPORTANT: do NOT use --ignore-scripts (bcrypt needs install scripts to build native binary)
+RUN npm ci --omit=dev \
   && npm install prisma@5.14.0 --no-save
 
 # Copy built output and prisma
