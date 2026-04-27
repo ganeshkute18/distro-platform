@@ -40,13 +40,18 @@ function configureCloudinary() {
 async function importImageToCloudinary(remoteUrl: string, publicId: string) {
   const ok = configureCloudinary();
   if (!ok) return remoteUrl;
-  const res = await cloudinary.uploader.upload(remoteUrl, {
-    folder: 'distro/seed',
-    public_id: publicId,
-    overwrite: true,
-    resource_type: 'image',
-  });
-  return res.secure_url;
+  try {
+    const res = await cloudinary.uploader.upload(remoteUrl, {
+      folder: 'distro/seed',
+      public_id: publicId,
+      overwrite: true,
+      resource_type: 'image',
+    });
+    return res.secure_url;
+  } catch (error) {
+    console.warn(`⚠️  Cloudinary upload failed for ${publicId}, using source URL instead.`);
+    return remoteUrl;
+  }
 }
 
 async function main() {
