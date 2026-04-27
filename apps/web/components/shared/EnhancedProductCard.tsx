@@ -132,7 +132,7 @@ export function EnhancedProductCard({
               </span>
               <button
                 onClick={() =>
-                  setQuantity(Math.min(product.stock || 99, quantity + 1))
+                  setQuantity(Math.min(product.inventory?.availableStock || 99, quantity + 1))
                 }
                 className="flex-1 py-1 hover:bg-background rounded transition-colors text-sm font-medium"
               >
