@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 const USER_SELECT = {
   id: true, email: true, name: true, role: true, isActive: true,
   phone: true, businessName: true, address: true, createdAt: true,
+  profileImageUrl: true,
 };
 
 @Injectable()
@@ -130,6 +131,45 @@ export class UsersService {
     });
 
     return updated;
+  }
+
+  async removePermanent(id: string, removedById: string) {
+    if (id === removedById) throw new ForbiddenException('Cannot delete yourself');
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === Role.OWNER) {
+      throw new ForbiddenException('Owner accounts cannot be permanently deleted');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Orders where this user acted as approver should remain; detach approver reference.
+      await tx.order.updateMany({
+        where: { approvedById: id },
+        data: { approvedById: null, approvedAt: null },
+      });
+
+      // Remove customer orders (cascades items + status history)
+      await tx.order.deleteMany({ where: { customerId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.auditLog.deleteMany({ where: { userId: id } });
+      await tx.invitation.updateMany({
+        where: { usedBy: id },
+        data: { usedBy: null },
+      });
+
+      await tx.user.delete({ where: { id } });
+    });
+
+    await this.auditService.log({
+      userId: removedById,
+      action: AuditAction.USER_DEACTIVATED,
+      entity: 'User',
+      entityId: id,
+      after: { permanentDelete: true } as Record<string, unknown>,
+    });
+
+    return { success: true };
   }
 
   async reactivate(id: string, reactivatedById: string) {

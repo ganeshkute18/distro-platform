@@ -57,6 +57,17 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum PaymentMethod {
+  COD
+  QR
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 model User {
   id                           String   @id @default(cuid())
   email                        String   @unique
@@ -67,6 +78,7 @@ model User {
   isActive                     Boolean  @default(true)
   businessName                 String?
   address                      String?
+  profileImageUrl              String?
   refreshToken                 String?
   
   // Email Verification
@@ -219,6 +231,10 @@ model Order {
   notes               String?
   deliveryDate        DateTime?
   deliveryAddress     String?
+  paymentMethod       PaymentMethod @default(COD)
+  paymentStatus       PaymentStatus @default(PENDING)
+  paymentReceiptUrl   String?
+  paymentReceiptNote  String?
   rejectionReason     String?
   isPartialFulfillment Boolean    @default(false)
   parentOrderId       String?
@@ -243,6 +259,20 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+}
+
+model AppSetting {
+  id                 String   @id @default(cuid())
+  companyName        String   @default("Nath Sales")
+  companyLogoUrl     String?
+  paymentQrUrl       String?
+  upiId              String?
+  bankDetails        String?
+  onlineGatewayNote  String?  @default("Online payment gateway will be integrated in a future release.")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("app_settings")
 }
 
 model OrderItem {

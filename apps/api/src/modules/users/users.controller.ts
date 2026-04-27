@@ -62,8 +62,8 @@ export class UsersController {
   @Roles(Role.OWNER)
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  deactivate(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.usersService.deactivate(id, user.id);
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.usersService.removePermanent(id, user.id);
   }
 
   @Roles(Role.OWNER)

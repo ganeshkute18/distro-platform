@@ -28,7 +28,7 @@ export class InventoryController {
     return this.service.findByProduct(productId);
   }
 
-  @Roles(Role.OWNER)
+  @Roles(Role.OWNER, Role.STAFF)
   @Post(':productId/adjust')
   adjust(
     @Param('productId') productId: string,

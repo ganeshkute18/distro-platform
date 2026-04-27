@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'DistroPro — B2B Distribution Platform',
+  title: 'Nath Sales — B2B Distribution Platform',
   description: 'B2B Ordering & Inventory Management',
 };
 

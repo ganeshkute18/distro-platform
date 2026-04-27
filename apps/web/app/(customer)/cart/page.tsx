@@ -4,18 +4,24 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../../../store/cart.store';
-import { useCreateOrder } from '../../../hooks/use-api';
+import { useAppSettings, useCreateOrder } from '../../../hooks/use-api';
 import { formatCurrency, type CartItem } from '../../../types';
 import CustomerShell from '../../../components/layout/CustomerShell';
 import Link from 'next/link';
+import { api } from '../../../lib/api-client';
+import toast from 'react-hot-toast';
 
 export default function CartPage() {
   const router = useRouter();
   const { items, updateQuantity, removeItem, clear } = useCartStore();
   const createOrder = useCreateOrder();
+  const { data: settings } = useAppSettings();
   const [notes, setNotes] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'COD' | 'QR'>('COD');
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [paymentNote, setPaymentNote] = useState('');
 
   const subtotal = items.reduce((sum, item) => sum + item.product.pricePerUnit * item.quantity, 0);
   const tax = items.reduce((sum, item) => {
@@ -25,13 +31,30 @@ export default function CartPage() {
   const total = subtotal + tax;
 
   async function handlePlaceOrder() {
-    await createOrder.mutateAsync({
+    if (paymentMethod === 'QR' && !receiptFile) {
+      toast.error('Please upload receipt screenshot for QR payment');
+      return;
+    }
+
+    const order = await createOrder.mutateAsync({
       items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
       notes: notes || undefined,
       deliveryDate: deliveryDate || undefined,
       deliveryAddress: deliveryAddress || undefined,
+      paymentMethod,
+      paymentReceiptNote: paymentNote || undefined,
     });
+
+    if (paymentMethod === 'QR' && receiptFile) {
+      const formData = new FormData();
+      formData.append('receipt', receiptFile);
+      if (paymentNote) formData.append('note', paymentNote);
+      await api.patch(`/orders/${(order as any).id}/payment-receipt`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
     clear();
+    toast.success('Order placed successfully');
     router.push('/orders');
   }
 
@@ -168,6 +191,42 @@ export default function CartPage() {
                   className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as 'COD' | 'QR')}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="COD">Cash on Delivery</option>
+                  <option value="QR">QR Payment (upload receipt)</option>
+                </select>
+              </div>
+
+              {paymentMethod === 'QR' && (
+                <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+                  {settings?.paymentQrUrl ? (
+                    <img src={settings.paymentQrUrl} alt="Payment QR" className="h-48 w-full rounded-lg object-contain bg-white p-2" />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Owner has not configured payment QR yet.</p>
+                  )}
+                  {settings?.upiId && <p className="text-xs text-muted-foreground">UPI: {settings.upiId}</p>}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    placeholder="UTR / reference number (optional)"
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              )}
             </div>
 
             <button

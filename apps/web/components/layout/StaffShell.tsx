@@ -3,15 +3,18 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingCart, PackageCheck, LogOut, Bell, Menu, X } from 'lucide-react';
+import { ShoppingCart, PackageCheck, LogOut, Bell, Menu, X, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationStore } from '../../store/notification.store';
 import { api } from '../../lib/api-client';
+import { ThemeToggle } from '../shared/ThemeToggle';
+import { useAppSettings } from '../../hooks/use-api';
 
 const NAV_ITEMS = [
   { href: '/staff/orders', icon: ShoppingCart, label: 'Orders' },
   { href: '/staff/inventory', icon: PackageCheck, label: 'Inventory' },
+  { href: '/staff/profile', icon: User, label: 'Profile' },
 ];
 
 export default function StaffShell({ children }: { children: React.ReactNode }) {
@@ -20,6 +23,7 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const { user, clear } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { data: appSettings } = useAppSettings();
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
@@ -32,7 +36,7 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
       {/* Sidebar */}
       <aside className="hidden md:flex w-56 flex-col border-r bg-card">
         <div className="flex h-16 items-center border-b px-6">
-          <span className="text-lg font-bold text-primary">DistroPro</span>
+          <span className="text-lg font-bold text-primary">{appSettings?.companyName || 'Nath Sales'}</span>
           <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs font-medium">Staff</span>
         </div>
         <nav className="flex-1 p-3 space-y-1">
@@ -79,6 +83,7 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
           </button>
           <span className="font-semibold">Staff Portal</span>
           <div className="ml-auto relative">
+            <ThemeToggle />
             <Bell className="h-5 w-5 text-muted-foreground" />
             {unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white">

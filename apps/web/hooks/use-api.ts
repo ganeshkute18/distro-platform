@@ -7,6 +7,24 @@ import toast from 'react-hot-toast';
 export const useMe = () =>
   useQuery({ queryKey: ['me'], queryFn: () => api.get<User>('/users/me') });
 
+export const useAppSettings = () =>
+  useQuery({
+    queryKey: ['app-settings'],
+    queryFn: () => api.get<{ companyName: string; companyLogoUrl?: string; paymentQrUrl?: string; upiId?: string; bankDetails?: string; onlineGatewayNote?: string }>('/settings'),
+  });
+
+export const useUpdateAppSettings = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: unknown) => api.patch('/settings', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['app-settings'] });
+      toast.success('Settings updated');
+    },
+    onError: () => toast.error('Failed to update settings'),
+  });
+};
+
 // ─── Products ────────────────────────────────────────────
 export const useProducts = (params?: Record<string, unknown>) =>
   useQuery({

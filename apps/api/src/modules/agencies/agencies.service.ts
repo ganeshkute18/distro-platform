@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateAgencyDto, UpdateAgencyDto } from './dto/agency.dto';
 import { AuditService } from '../audit/audit.service';
@@ -37,6 +37,10 @@ export class AgenciesService {
   }
 
   async remove(id: string) {
-    return this.prisma.agency.update({ where: { id }, data: { isActive: false } });
+    const linkedProducts = await this.prisma.product.count({ where: { agencyId: id } });
+    if (linkedProducts > 0) {
+      throw new BadRequestException('Cannot delete agency with linked products');
+    }
+    return this.prisma.agency.delete({ where: { id } });
   }
 }

@@ -46,17 +46,13 @@ export class NotificationsService {
 
   @OnEvent('order.created')
   async handleOrderCreated(order: Order & { customer?: { name: string } }) {
-    const [owners, staff] = await Promise.all([
-      this.prisma.user.findMany({ where: { role: Role.OWNER, isActive: true }, select: { id: true } }),
-      this.prisma.user.findMany({ where: { role: Role.STAFF, isActive: true }, select: { id: true } }),
-    ]);
+    const owners = await this.prisma.user.findMany({ where: { role: Role.OWNER, isActive: true }, select: { id: true } });
 
     const title = '🆕 New Order Pending Approval';
     const message = `Order #${(order as never as { orderNumber: string }).orderNumber} was placed and is pending approval`;
 
     await Promise.all([
       ...owners.map((o) => this.create(o.id, title, message, 'ORDER_PLACED', order.id)),
-      ...staff.map((s) => this.create(s.id, title, message, 'ORDER_PLACED', order.id)),
     ]);
   }
 
@@ -80,14 +76,6 @@ export class NotificationsService {
       ),
     );
 
-    // Notify customer
-    await this.create(
-      order.customerId,
-      '✅ Your Order is Approved',
-      `Order #${(order as never as { orderNumber: string }).orderNumber} has been approved and will be processed soon`,
-      'ORDER_APPROVED',
-      order.id,
-    );
   }
 
   @OnEvent('order.rejected')

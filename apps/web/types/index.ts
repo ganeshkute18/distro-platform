@@ -20,6 +20,7 @@ export interface User {
   phone?: string;
   businessName?: string;
   address?: string;
+  profileImageUrl?: string;
   createdAt: string;
 }
 
@@ -102,6 +103,10 @@ export interface Order {
   notes?: string;
   deliveryDate?: string;
   deliveryAddress?: string;
+  paymentMethod?: 'COD' | 'QR';
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED';
+  paymentReceiptUrl?: string;
+  paymentReceiptNote?: string;
   rejectionReason?: string;
   approvedBy?: { id: string; name: string };
   approvedAt?: string;
@@ -113,6 +118,16 @@ export interface Order {
   statusHistory: OrderStatusHistory[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AppSettings {
+  id: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  paymentQrUrl?: string;
+  upiId?: string;
+  bankDetails?: string;
+  onlineGatewayNote?: string;
 }
 
 export interface Notification {

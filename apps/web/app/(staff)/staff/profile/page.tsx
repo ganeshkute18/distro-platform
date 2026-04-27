@@ -1,29 +1,35 @@
 'use client';
+
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useMe } from '../../../hooks/use-api';
-import { api } from '../../../lib/api-client';
-import { PageHeader, Card, PageLoader } from '../../../components/shared';
-import CustomerShell from '../../../components/layout/CustomerShell';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMe } from '../../../../hooks/use-api';
+import { api } from '../../../../lib/api-client';
+import { PageHeader, Card, PageLoader } from '../../../../components/shared';
+import StaffShell from '../../../../components/layout/StaffShell';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 
-export default function ProfilePage() {
+export default function StaffProfilePage() {
   const { data: user, isLoading } = useMe();
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
 
   async function onSubmit(data: Record<string, unknown>) {
     const cleaned = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== ''));
-    try { await api.patch('/users/me', cleaned); qc.invalidateQueries({ queryKey: ['me'] }); toast.success('Profile updated!'); }
-    catch { toast.error('Failed to update'); }
+    try {
+      await api.patch('/users/me', cleaned);
+      qc.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Profile updated!');
+    } catch {
+      toast.error('Failed to update');
+    }
   }
 
-  if (isLoading) return <CustomerShell><PageLoader /></CustomerShell>;
+  if (isLoading) return <StaffShell><PageLoader /></StaffShell>;
 
   return (
-    <CustomerShell>
+    <StaffShell>
       <PageHeader title="My Profile" />
       <div className="max-w-lg">
         <Card>
@@ -38,7 +44,7 @@ export default function ProfilePage() {
             <div><p className="font-bold text-lg">{user?.name}</p><p className="text-sm text-muted-foreground">{user?.email}</p></div>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {[['name', 'Full Name', user?.name], ['businessName', 'Business Name', user?.businessName], ['phone', 'Phone', user?.phone], ['address', 'Address', user?.address], ['profileImageUrl', 'Profile Image URL', (user as any)?.profileImageUrl]].map(([f, l, d]) => (
+            {[['name', 'Full Name', user?.name], ['phone', 'Phone', user?.phone], ['address', 'Address', user?.address], ['profileImageUrl', 'Profile Image URL', (user as any)?.profileImageUrl]].map(([f, l, d]) => (
               <div key={String(f)}><label className="mb-1.5 block text-sm font-medium">{l}</label><input {...register(String(f))} defaultValue={String(d ?? '')} className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
             ))}
             <div><label className="mb-1.5 block text-sm font-medium">New Password</label><input {...register('password')} type="password" placeholder="Leave blank to keep current" className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
@@ -48,6 +54,7 @@ export default function ProfilePage() {
           </form>
         </Card>
       </div>
-    </CustomerShell>
+    </StaffShell>
   );
 }
+

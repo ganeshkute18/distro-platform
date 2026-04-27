@@ -96,11 +96,15 @@ export class OrdersService {
         notes: dto.notes,
         deliveryDate: dto.deliveryDate ? new Date(dto.deliveryDate) : null,
         deliveryAddress: dto.deliveryAddress,
+        paymentMethod: dto.paymentMethod ?? 'COD',
+        paymentStatus: dto.paymentMethod === 'COD' ? 'PENDING' : 'PAID',
+        paymentReceiptUrl: dto.paymentReceiptUrl,
+        paymentReceiptNote: dto.paymentReceiptNote,
         items: { create: itemsData },
         statusHistory: {
           create: { fromStatus: null, toStatus: OrderStatus.PENDING_APPROVAL, changedBy: customerId },
         },
-      },
+      } as any,
       include: ORDER_INCLUDE,
     });
 
@@ -297,8 +301,27 @@ export class OrdersService {
     const createDto: CreateOrderDto = {
       items: original.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       deliveryAddress: original.deliveryAddress ?? undefined,
+      paymentMethod: 'COD',
     };
 
     return this.create(createDto, customerId);
+  }
+
+  async attachPaymentReceipt(id: string, customerId: string, receiptUrl: string, note?: string) {
+    const order = await this.prisma.order.findUnique({ where: { id } });
+    if (!order || order.customerId !== customerId) {
+      throw new NotFoundException('Order not found');
+    }
+
+    return this.prisma.order.update({
+      where: { id },
+      data: {
+        paymentMethod: 'QR',
+        paymentReceiptUrl: receiptUrl,
+        paymentReceiptNote: note,
+        paymentStatus: 'PAID',
+      } as any,
+      include: ORDER_INCLUDE,
+    });
   }
 }

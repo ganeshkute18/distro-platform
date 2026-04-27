@@ -137,6 +137,14 @@ export default function StaffOrderDetailPage() {
               <p className="text-sm text-muted-foreground">{order.notes}</p>
             </Card>
           )}
+          <Card>
+            <CardTitle className="mb-2">Payment</CardTitle>
+            <p className="text-sm text-muted-foreground">Method: {order.paymentMethod === 'QR' ? 'QR Payment' : 'Cash on Delivery'}</p>
+            {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
+            {order.paymentReceiptUrl && (
+              <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+            )}
+          </Card>
 
           <Card>
             <CardTitle className="mb-3">Status History</CardTitle>

@@ -15,6 +15,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { EmailModule } from './modules/email/email.module';
 import { HealthController } from './health.controller';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { HealthController } from './health.controller';
     ReportsModule,
     AuditModule,
     EmailModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
 })

@@ -6,13 +6,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, PackageCheck, Package,
   Building2, Tag, Users, BarChart3, LogOut, Bell,
-  ChevronLeft, ChevronRight, Menu, X, AlertTriangle, ClipboardList,
+  ChevronLeft, ChevronRight, Menu, X, AlertTriangle, ClipboardList, Settings, User,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationStore } from '../../store/notification.store';
 import { api } from '../../lib/api-client';
 import { ThemeToggle } from '../shared/ThemeToggle';
+import { useAppSettings } from '../../hooks/use-api';
 
 const NAV_ITEMS = [
   { href: '/owner/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -24,6 +25,8 @@ const NAV_ITEMS = [
   { href: '/owner/inventory', icon: PackageCheck, label: 'Inventory' },
   { href: '/owner/users', icon: Users, label: 'Users' },
   { href: '/owner/reports', icon: BarChart3, label: 'Reports' },
+  { href: '/owner/profile', icon: User, label: 'Profile' },
+  { href: '/owner/settings', icon: Settings, label: 'Settings' },
 ];
 
 export default function OwnerShell({ children }: { children: React.ReactNode }) {
@@ -33,6 +36,7 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const { user, clear } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { data: appSettings } = useAppSettings();
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
@@ -71,7 +75,7 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b px-4">
         {!collapsed && (
-          <span className="text-lg font-bold text-primary">DistroPro</span>
+          <span className="text-lg font-bold text-primary">{appSettings?.companyName || 'Nath Sales'}</span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}

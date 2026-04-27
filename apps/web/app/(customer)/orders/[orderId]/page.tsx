@@ -28,6 +28,16 @@ export default function CustomerOrderDetailPage() {
     }
   }
 
+  async function handleInvoiceDownload() {
+    const blob = await api.get<Blob>(`/orders/${orderId}/invoice`, { responseType: 'blob' } as any);
+    const url = window.URL.createObjectURL(blob as any);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `invoice-${order?.orderNumber || orderId}.html`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  }
+
   if (isLoading) return <CustomerShell><PageLoader /></CustomerShell>;
   if (!order) return <CustomerShell><p className="text-center py-12 text-muted-foreground">Order not found.</p></CustomerShell>;
 
@@ -57,6 +67,12 @@ export default function CustomerOrderDetailPage() {
               Repeat Order
             </button>
           )}
+          <button
+            onClick={handleInvoiceDownload}
+            className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+          >
+            Download Invoice
+          </button>
         </div>
       </div>
 
@@ -148,15 +164,27 @@ export default function CustomerOrderDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-4">
-          {order.deliveryDate && (
+          {(order.deliveryDate || order.deliveryAddress) && (
             <Card>
               <CardTitle className="mb-2">Delivery Details</CardTitle>
-              <p className="text-sm">Expected: <strong>{formatDate(order.deliveryDate)}</strong></p>
+              {order.deliveryDate && <p className="text-sm">Expected: <strong>{formatDate(order.deliveryDate)}</strong></p>}
               {order.deliveryAddress && (
                 <p className="mt-1 text-sm text-muted-foreground">{order.deliveryAddress}</p>
               )}
             </Card>
           )}
+          <Card>
+            <CardTitle className="mb-2">Payment</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Method: {order.paymentMethod === 'QR' ? 'QR Payment' : 'Cash on Delivery'}
+            </p>
+            {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
+            {order.paymentReceiptUrl && (
+              <a href={order.paymentReceiptUrl} target="_blank" className="mt-1 inline-block text-sm text-primary underline">
+                View uploaded receipt
+              </a>
+            )}
+          </Card>
           {order.notes && (
             <Card>
               <CardTitle className="mb-2">Notes</CardTitle>

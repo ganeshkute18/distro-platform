@@ -1,29 +1,35 @@
 'use client';
+
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useMe } from '../../../hooks/use-api';
-import { api } from '../../../lib/api-client';
-import { PageHeader, Card, PageLoader } from '../../../components/shared';
-import CustomerShell from '../../../components/layout/CustomerShell';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMe } from '../../../../hooks/use-api';
+import { api } from '../../../../lib/api-client';
+import { PageHeader, Card, PageLoader } from '../../../../components/shared';
+import OwnerShell from '../../../../components/layout/OwnerShell';
 import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 
-export default function ProfilePage() {
+export default function OwnerProfilePage() {
   const { data: user, isLoading } = useMe();
   const qc = useQueryClient();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm();
 
   async function onSubmit(data: Record<string, unknown>) {
     const cleaned = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== ''));
-    try { await api.patch('/users/me', cleaned); qc.invalidateQueries({ queryKey: ['me'] }); toast.success('Profile updated!'); }
-    catch { toast.error('Failed to update'); }
+    try {
+      await api.patch('/users/me', cleaned);
+      qc.invalidateQueries({ queryKey: ['me'] });
+      toast.success('Profile updated!');
+    } catch {
+      toast.error('Failed to update');
+    }
   }
 
-  if (isLoading) return <CustomerShell><PageLoader /></CustomerShell>;
+  if (isLoading) return <OwnerShell><PageLoader /></OwnerShell>;
 
   return (
-    <CustomerShell>
+    <OwnerShell>
       <PageHeader title="My Profile" />
       <div className="max-w-lg">
         <Card>
@@ -48,6 +54,7 @@ export default function ProfilePage() {
           </form>
         </Card>
       </div>
-    </CustomerShell>
+    </OwnerShell>
   );
 }
+

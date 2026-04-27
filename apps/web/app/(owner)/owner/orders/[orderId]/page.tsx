@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Package } from 'lucide-react';
 import { useOrder } from '../../../../../hooks/use-api';
+import { api } from '../../../../../lib/api-client';
 import { PageLoader, StatusBadge, Card, CardHeader, CardTitle } from '../../../../../components/shared';
 import { formatCurrency, formatDate, type OrderItem, type OrderStatusHistory, ORDER_STATUS_LABEL } from '../../../../../types';
 import OwnerShell from '../../../../../components/layout/OwnerShell';
@@ -11,6 +12,16 @@ import OwnerShell from '../../../../../components/layout/OwnerShell';
 export default function OwnerOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading } = useOrder(orderId);
+
+  async function handleInvoiceDownload() {
+    const blob = await api.get<Blob>(`/orders/${orderId}/invoice`, { responseType: 'blob' } as any);
+    const url = window.URL.createObjectURL(blob as any);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `invoice-${order?.orderNumber || orderId}.html`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  }
 
   if (isLoading) return <OwnerShell><PageLoader /></OwnerShell>;
   if (!order) return <OwnerShell><p>Not found</p></OwnerShell>;
@@ -20,7 +31,10 @@ export default function OwnerOrderDetailPage() {
       <Link href="/owner/orders" className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Back</Link>
       <div className="mb-6 flex items-start justify-between">
         <div><h1 className="text-2xl font-bold">{order.orderNumber}</h1><p className="text-sm text-muted-foreground">{formatDate(order.createdAt)}</p></div>
-        <StatusBadge status={order.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={order.status} />
+          <button onClick={handleInvoiceDownload} className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-muted">Download Invoice</button>
+        </div>
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -47,6 +61,16 @@ export default function OwnerOrderDetailPage() {
           <Card><CardTitle className="mb-3">Customer</CardTitle>
             <p className="font-medium text-sm">{order.customer?.name}</p>
             {order.customer?.businessName && <p className="text-xs text-muted-foreground">{order.customer.businessName}</p>}
+            {order.deliveryAddress && <p className="mt-2 text-xs text-muted-foreground">Delivery: {order.deliveryAddress}</p>}
+            {order.deliveryDate && <p className="text-xs text-muted-foreground">Date: {formatDate(order.deliveryDate)}</p>}
+          </Card>
+          <Card>
+            <CardTitle className="mb-2">Payment</CardTitle>
+            <p className="text-sm text-muted-foreground">Method: {order.paymentMethod === 'QR' ? 'QR Payment' : 'Cash on Delivery'}</p>
+            {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
+            {order.paymentReceiptUrl && (
+              <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+            )}
           </Card>
           {order.rejectionReason && <Card><CardTitle className="mb-2 text-destructive">Rejection Reason</CardTitle><p className="text-sm text-muted-foreground">{order.rejectionReason}</p></Card>}
           <Card><CardTitle className="mb-3">Status History</CardTitle>

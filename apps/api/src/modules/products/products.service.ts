@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dto/product.dto';
@@ -95,8 +95,17 @@ export class ProductsService {
 
   async remove(id: string, userId: string) {
     await this.findOne(id);
-    const updated = await this.prisma.product.update({
-      where: { id }, data: { isActive: false },
+    const orderRefs = await this.prisma.orderItem.count({ where: { productId: id } });
+    if (orderRefs > 0) {
+      throw new BadRequestException('Cannot delete product already used in orders');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.inventoryAdjustment.deleteMany({
+        where: { inventory: { productId: id } },
+      });
+      await tx.inventory.deleteMany({ where: { productId: id } });
+      await tx.product.delete({ where: { id } });
     });
 
     await this.audit.log({
@@ -104,7 +113,7 @@ export class ProductsService {
       entity: 'Product', entityId: id,
     });
 
-    return updated;
+    return { success: true };
   }
 
   async addImages(id: string, urls: string[]) {

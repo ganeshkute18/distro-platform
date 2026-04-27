@@ -4,6 +4,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
+import { IsEnum } from 'class-validator';
 
 export class OrderItemDto {
   @ApiProperty() @IsString() productId: string;
@@ -21,6 +22,12 @@ export class CreateOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() deliveryDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() deliveryAddress?: string;
+  @ApiPropertyOptional({ enum: ['COD', 'QR'], default: 'COD' })
+  @IsOptional()
+  @IsEnum(['COD', 'QR'])
+  paymentMethod?: 'COD' | 'QR';
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentReceiptUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentReceiptNote?: string;
 }
 
 export class RejectOrderDto {

@@ -8,6 +8,8 @@ import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
 import { api } from '../../lib/api-client';
+import { ThemeToggle } from '../shared/ThemeToggle';
+import { useAppSettings } from '../../hooks/use-api';
 
 const NAV_ITEMS = [
   { href: '/catalog', icon: ShoppingBag, label: 'Catalog' },
@@ -20,6 +22,7 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
   const router = useRouter();
   const { user, clear } = useAuthStore();
   const { items } = useCartStore();
+  const { data: appSettings } = useAppSettings();
 
   async function handleLogout() {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
@@ -33,7 +36,7 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <Link href="/catalog" className="text-xl font-bold text-primary">
-            DistroPro
+            {appSettings?.companyName || 'Nath Sales'}
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -55,6 +58,7 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
           </nav>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {/* Cart */}
             <Link href="/cart" className="relative rounded-lg p-2 hover:bg-accent">
               <ShoppingCart className="h-5 w-5" />

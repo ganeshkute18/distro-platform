@@ -24,5 +24,6 @@ export class UpdateProfileDto {
   @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() businessName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() profileImageUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(8) password?: string;
 }

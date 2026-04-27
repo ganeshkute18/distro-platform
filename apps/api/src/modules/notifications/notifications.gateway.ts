@@ -74,18 +74,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       message: 'New order pending approval',
       data: order,
     });
-    this.emitToRole('STAFF', 'notification', {
-      type: 'ORDER_PLACED',
-      message: 'New order pending approval',
-      data: order,
-    });
   }
 
   @OnEvent('order.approved')
   onOrderApproved(order: unknown) {
     this.emitToRole('STAFF', 'notification', { type: 'ORDER_APPROVED', data: order });
-    const o = order as { customerId: string };
-    this.emitToUser(o.customerId, 'notification', { type: 'ORDER_APPROVED', data: order });
   }
 
   @OnEvent('order.rejected')
