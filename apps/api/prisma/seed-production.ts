@@ -23,138 +23,301 @@
  */
 
 import { PrismaClient, UnitType } from '@prisma/client';
+import { v2 as cloudinary } from 'cloudinary';
 
 const prisma = new PrismaClient();
+
+function configureCloudinary() {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+  if (!cloudName || !apiKey || !apiSecret) return false;
+
+  cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret });
+  return true;
+}
+
+async function importImageToCloudinary(remoteUrl: string, publicId: string) {
+  const ok = configureCloudinary();
+  if (!ok) return remoteUrl;
+  const res = await cloudinary.uploader.upload(remoteUrl, {
+    folder: 'distro/seed',
+    public_id: publicId,
+    overwrite: true,
+    resource_type: 'image',
+  });
+  return res.secure_url;
+}
 
 async function main() {
   console.log('🌱 Production Seed - Creating base data (NO USER ACCOUNTS)...\n');
 
-  // Create Agencies/Vendors
-  const hul = await prisma.agency.upsert({
-    where: { name: 'Hindustan Unilever' },
-    update: {},
+  // Create Agencies (client-specific)
+  const chitale = await prisma.agency.upsert({
+    where: { name: 'Chitale Dairy Products Agency' },
+    update: { isActive: true },
     create: {
-      name: 'Hindustan Unilever',
-      description: 'FMCG & Personal Care Products',
+      name: 'Chitale Dairy Products Agency',
+      description: 'Dairy items (milk, curd, paneer, butter, ghee)',
       contactName: 'Sales Team',
-      contactEmail: 'sales@hul.com',
-      contactPhone: '+912022000000',
+      contactEmail: 'sales@chitale.example',
+      contactPhone: '+919000000001',
       isActive: true,
     },
   });
 
-  const emami = await prisma.agency.upsert({
-    where: { name: 'Emami Ltd' },
-    update: {},
+  const bisleri = await prisma.agency.upsert({
+    where: { name: 'Bisleri Packaged Drinking Water Agency' },
+    update: { isActive: true },
     create: {
-      name: 'Emami Ltd',
-      description: 'Ayurvedic & Personal Care',
-      contactName: 'Distribution',
-      contactEmail: 'distribution@emami.com',
-      contactPhone: '+911166000000',
+      name: 'Bisleri Packaged Drinking Water Agency',
+      description: 'Packaged drinking water bottles and cans',
+      contactName: 'Sales Team',
+      contactEmail: 'sales@bisleri.example',
+      contactPhone: '+919000000002',
       isActive: true,
     },
   });
 
-  const amul = await prisma.agency.upsert({
-    where: { name: 'AMUL' },
-    update: {},
+  const societyTea = await prisma.agency.upsert({
+    where: { name: 'Society Tea Power Agency' },
+    update: { isActive: true },
     create: {
-      name: 'AMUL',
-      description: 'Dairy & Food Products',
-      contactName: 'Wholesale',
-      contactEmail: 'wholesale@amul.com',
-      contactPhone: '+919079000000',
+      name: 'Society Tea Power Agency',
+      description: 'Tea products (powder, bags, premix)',
+      contactName: 'Sales Team',
+      contactEmail: 'sales@societytea.example',
+      contactPhone: '+919000000003',
       isActive: true,
     },
   });
 
   // Create Categories
-  const personalCare = await prisma.category.upsert({
-    where: { slug: 'personal-care' },
-    update: {},
-    create: {
-      name: 'Personal Care',
-      slug: 'personal-care',
-      description: 'Soaps, shampoos, skincare, and personal hygiene products',
-    },
-  });
-
   const dairyProducts = await prisma.category.upsert({
     where: { slug: 'dairy-products' },
     update: {},
     create: {
       name: 'Dairy Products',
       slug: 'dairy-products',
-      description: 'Milk, butter, yogurt, and dairy-based products',
+      description: 'Milk, curd, paneer, butter, ghee and dairy essentials',
     },
   });
 
-  const homecare = await prisma.category.upsert({
-    where: { slug: 'home-care' },
+  const packagedWater = await prisma.category.upsert({
+    where: { slug: 'packaged-water' },
     update: {},
     create: {
-      name: 'Home Care',
-      slug: 'home-care',
-      description: 'Cleaning products, detergents, and household essentials',
+      name: 'Packaged Water',
+      slug: 'packaged-water',
+      description: 'Bottled drinking water and water cans',
     },
   });
 
-  // Create Products
-  const product1 = await prisma.product.upsert({
-    where: { sku: 'HUL-LUX-001' },
+  const teaAndBeverages = await prisma.category.upsert({
+    where: { slug: 'tea-and-beverages' },
     update: {},
     create: {
-      sku: 'HUL-LUX-001',
-      name: 'Lux Soap Bar',
-      description: 'Premium bathing soap, rose fragrance',
-      unitType: UnitType.PACKET,
-      unitsPerCase: 4,
-      pricePerUnit: 8000, // ₹80
-      taxPercent: 18,
-      agencyId: hul.id,
-      categoryId: personalCare.id,
-      isActive: true,
+      name: 'Tea & Beverages',
+      slug: 'tea-and-beverages',
+      description: 'Tea, premixes, and beverage essentials',
     },
   });
 
-  const product2 = await prisma.product.upsert({
-    where: { sku: 'HUL-DOVE-001' },
-    update: {},
-    create: {
-      sku: 'HUL-DOVE-001',
-      name: 'Dove Shampoo 400ml',
-      description: 'Moisturizing shampoo for smooth hair',
-      unitType: UnitType.LITRE,
-      unitsPerCase: 12,
-      pricePerUnit: 25000, // ₹250
-      taxPercent: 18,
-      agencyId: hul.id,
-      categoryId: personalCare.id,
-      isActive: true,
-    },
-  });
+  // Seed images (import to Cloudinary if configured)
+  const imgWaterBottle = await importImageToCloudinary(
+    'https://upload.wikimedia.org/wikipedia/commons/a/a0/Water_bottle.png',
+    'water-bottle',
+  );
+  const imgSocietyLogo = await importImageToCloudinary(
+    'https://upload.wikimedia.org/wikipedia/commons/2/2e/Society-tea-logo.png',
+    'society-tea-logo',
+  );
+  const imgPaneerDish = await importImageToCloudinary(
+    'https://upload.wikimedia.org/wikipedia/commons/7/7e/Kadai_paneer_with_garlic_naan.jpg',
+    'paneer-dish',
+  );
 
-  const product3 = await prisma.product.upsert({
-    where: { sku: 'AMUL-MILK-001' },
-    update: {},
-    create: {
-      sku: 'AMUL-MILK-001',
-      name: 'AMUL Fresh Milk (1L)',
-      description: 'Pure fresh cow milk',
-      unitType: UnitType.LITRE,
-      unitsPerCase: 1,
-      pricePerUnit: 6500, // ₹65
-      taxPercent: 5,
-      agencyId: amul.id,
-      categoryId: dairyProducts.id,
-      isActive: true,
-    },
-  });
+  // Create Products (realistic starter catalog)
+  const products = await Promise.all([
+    // Bisleri
+    prisma.product.upsert({
+      where: { sku: 'BIS-WATER-1L' },
+      update: { isActive: true },
+      create: {
+        sku: 'BIS-WATER-1L',
+        name: 'Bisleri Packaged Drinking Water (1L)',
+        description: 'Packaged drinking water bottle',
+        unitType: UnitType.LITRE,
+        unitsPerCase: 12,
+        pricePerUnit: 2000, // ₹20
+        taxPercent: 0,
+        agencyId: bisleri.id,
+        categoryId: packagedWater.id,
+        isActive: true,
+        imageUrls: [imgWaterBottle],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'BIS-WATER-500ML' },
+      update: { isActive: true },
+      create: {
+        sku: 'BIS-WATER-500ML',
+        name: 'Bisleri Packaged Drinking Water (500ml)',
+        description: 'Packaged drinking water bottle',
+        unitType: UnitType.PIECE,
+        unitsPerCase: 24,
+        pricePerUnit: 1000, // ₹10
+        taxPercent: 0,
+        agencyId: bisleri.id,
+        categoryId: packagedWater.id,
+        isActive: true,
+        imageUrls: [imgWaterBottle],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'BIS-WATER-20L' },
+      update: { isActive: true },
+      create: {
+        sku: 'BIS-WATER-20L',
+        name: 'Bisleri Water Can (20L)',
+        description: 'Large water can for office/home dispensers',
+        unitType: UnitType.PIECE,
+        unitsPerCase: 1,
+        pricePerUnit: 8000, // ₹80
+        taxPercent: 0,
+        agencyId: bisleri.id,
+        categoryId: packagedWater.id,
+        isActive: true,
+        imageUrls: [imgWaterBottle],
+      },
+    }),
+
+    // Chitale Dairy
+    prisma.product.upsert({
+      where: { sku: 'CHT-MILK-1L' },
+      update: { isActive: true },
+      create: {
+        sku: 'CHT-MILK-1L',
+        name: 'Chitale Milk (1L)',
+        description: 'Fresh milk (pack)',
+        unitType: UnitType.LITRE,
+        unitsPerCase: 1,
+        pricePerUnit: 6000, // ₹60
+        taxPercent: 0,
+        agencyId: chitale.id,
+        categoryId: dairyProducts.id,
+        isActive: true,
+        imageUrls: [imgPaneerDish],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'CHT-CURD-500G' },
+      update: { isActive: true },
+      create: {
+        sku: 'CHT-CURD-500G',
+        name: 'Chitale Curd (500g)',
+        description: 'Fresh curd/dahi (pack)',
+        unitType: UnitType.PACKET,
+        unitsPerCase: 1,
+        pricePerUnit: 5000, // ₹50
+        taxPercent: 0,
+        agencyId: chitale.id,
+        categoryId: dairyProducts.id,
+        isActive: true,
+        imageUrls: [imgPaneerDish],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'CHT-PANEER-200G' },
+      update: { isActive: true },
+      create: {
+        sku: 'CHT-PANEER-200G',
+        name: 'Chitale Paneer (200g)',
+        description: 'Paneer (cottage cheese) pack',
+        unitType: UnitType.PACKET,
+        unitsPerCase: 1,
+        pricePerUnit: 10000, // ₹100
+        taxPercent: 0,
+        agencyId: chitale.id,
+        categoryId: dairyProducts.id,
+        isActive: true,
+        imageUrls: [imgPaneerDish],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'CHT-BUTTER-100G' },
+      update: { isActive: true },
+      create: {
+        sku: 'CHT-BUTTER-100G',
+        name: 'Chitale Butter (100g)',
+        description: 'Butter pack',
+        unitType: UnitType.PACKET,
+        unitsPerCase: 1,
+        pricePerUnit: 5500, // ₹55
+        taxPercent: 0,
+        agencyId: chitale.id,
+        categoryId: dairyProducts.id,
+        isActive: true,
+        imageUrls: [imgPaneerDish],
+      },
+    }),
+
+    // Society Tea
+    prisma.product.upsert({
+      where: { sku: 'SOC-TEA-1KG' },
+      update: { isActive: true },
+      create: {
+        sku: 'SOC-TEA-1KG',
+        name: 'Society Tea (1kg)',
+        description: 'Strong tea leaves (CTC)',
+        unitType: UnitType.KG,
+        unitsPerCase: 1,
+        pricePerUnit: 55000, // ₹550
+        taxPercent: 0,
+        agencyId: societyTea.id,
+        categoryId: teaAndBeverages.id,
+        isActive: true,
+        imageUrls: [imgSocietyLogo],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'SOC-TEA-250G' },
+      update: { isActive: true },
+      create: {
+        sku: 'SOC-TEA-250G',
+        name: 'Society Tea (250g)',
+        description: 'Tea leaves pack',
+        unitType: UnitType.PACKET,
+        unitsPerCase: 1,
+        pricePerUnit: 15000, // ₹150
+        taxPercent: 0,
+        agencyId: societyTea.id,
+        categoryId: teaAndBeverages.id,
+        isActive: true,
+        imageUrls: [imgSocietyLogo],
+      },
+    }),
+    prisma.product.upsert({
+      where: { sku: 'SOC-TEA-BAGS-25' },
+      update: { isActive: true },
+      create: {
+        sku: 'SOC-TEA-BAGS-25',
+        name: 'Society Tea Bags (25 pcs)',
+        description: 'Tea bags pack',
+        unitType: UnitType.PACKET,
+        unitsPerCase: 1,
+        pricePerUnit: 12000, // ₹120
+        taxPercent: 0,
+        agencyId: societyTea.id,
+        categoryId: teaAndBeverages.id,
+        isActive: true,
+        imageUrls: [imgSocietyLogo],
+      },
+    }),
+  ]);
 
   // Create Inventory for Products
-  const inventoryProducts = [product1, product2, product3];
-  for (const product of inventoryProducts) {
+  for (const product of products) {
     await prisma.inventory.upsert({
       where: { productId: product.id },
       update: {},
@@ -171,7 +334,7 @@ async function main() {
   console.log('📊 Database Summary:');
   console.log(`   ✓ Agencies: 3`);
   console.log(`   ✓ Categories: 3`);
-  console.log(`   ✓ Products: 3`);
+  console.log(`   ✓ Products: ${products.length}`);
   console.log(`   ✓ Users: 0 (Create manually)\n`);
 
   console.log('🚀 Next Steps:');

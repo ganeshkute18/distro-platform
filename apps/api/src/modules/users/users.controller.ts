@@ -29,12 +29,16 @@ export class UsersController {
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'role', enum: Role, required: false })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
   findAll(
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('role') role?: Role,
+    @Query('includeInactive') includeInactive?: string | boolean,
   ) {
-    return this.usersService.findAll(Number(page), Number(limit), role);
+    const includeInactiveBool =
+      includeInactive === true || includeInactive === 'true' || includeInactive === '1';
+    return this.usersService.findAll(Number(page), Number(limit), role, includeInactiveBool);
   }
 
   @Roles(Role.OWNER)
@@ -60,5 +64,12 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   deactivate(@Param('id') id: string, @CurrentUser() user: User) {
     return this.usersService.deactivate(id, user.id);
+  }
+
+  @Roles(Role.OWNER)
+  @Post(':id/reactivate')
+  @HttpCode(HttpStatus.OK)
+  reactivate(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.usersService.reactivate(id, user.id);
   }
 }

@@ -74,6 +74,11 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       message: 'New order pending approval',
       data: order,
     });
+    this.emitToRole('STAFF', 'notification', {
+      type: 'ORDER_PLACED',
+      message: 'New order pending approval',
+      data: order,
+    });
   }
 
   @OnEvent('order.approved')

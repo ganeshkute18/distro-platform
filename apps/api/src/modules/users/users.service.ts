@@ -4,7 +4,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './dto/user.dto';
-import { AuditAction, Role } from '@prisma/client';
+import { ApprovalStatus, AuditAction, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const USER_SELECT = {
@@ -33,6 +33,14 @@ export class UsersService {
         phone: dto.phone,
         businessName: dto.businessName,
         address: dto.address,
+        isActive: true,
+        // If the Owner is creating the account, treat it as "admin-provisioned":
+        // - no email verification loop
+        // - no separate approval loop
+        emailVerified: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+        approvedBy: createdById,
+        approvedAt: new Date(),
       },
       select: USER_SELECT,
     });
@@ -48,17 +56,19 @@ export class UsersService {
     return user;
   }
 
-  async findAll(page = 1, limit = 20, role?: Role) {
+  async findAll(page = 1, limit = 20, role?: Role, includeInactive = false) {
     const skip = (page - 1) * limit;
-    const where = role ? { role } : {};
+    const where: Record<string, unknown> = {};
+    if (role) where.role = role;
+    if (!includeInactive) where.isActive = true;
 
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
-        where, skip, take: limit,
+        where: where as never, skip, take: limit,
         select: USER_SELECT,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: where as never }),
     ]);
 
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -115,6 +125,23 @@ export class UsersService {
     await this.auditService.log({
       userId: deactivatedById,
       action: AuditAction.USER_DEACTIVATED,
+      entity: 'User',
+      entityId: id,
+    });
+
+    return updated;
+  }
+
+  async reactivate(id: string, reactivatedById: string) {
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+      select: USER_SELECT,
+    });
+
+    await this.auditService.log({
+      userId: reactivatedById,
+      action: AuditAction.USER_UPDATED,
       entity: 'User',
       entityId: id,
     });

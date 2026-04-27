@@ -12,6 +12,7 @@ import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
 import { useNotificationStore } from '../../store/notification.store';
 import { api } from '../../lib/api-client';
+import { ThemeToggle } from '../shared/ThemeToggle';
 
 const NAV_ITEMS = [
   { href: '/owner/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -146,6 +147,7 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
           </button>
 
           <div className="flex items-center gap-4 ml-auto">
+            <ThemeToggle />
             {/* Notification bell */}
             <Link href="/owner/dashboard" className="relative">
               <Bell className="h-5 w-5 text-muted-foreground" />

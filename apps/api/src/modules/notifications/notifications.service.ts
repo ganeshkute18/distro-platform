@@ -46,23 +46,18 @@ export class NotificationsService {
 
   @OnEvent('order.created')
   async handleOrderCreated(order: Order & { customer?: { name: string } }) {
-    // Notify all owners
-    const owners = await this.prisma.user.findMany({
-      where: { role: Role.OWNER, isActive: true },
-      select: { id: true },
-    });
+    const [owners, staff] = await Promise.all([
+      this.prisma.user.findMany({ where: { role: Role.OWNER, isActive: true }, select: { id: true } }),
+      this.prisma.user.findMany({ where: { role: Role.STAFF, isActive: true }, select: { id: true } }),
+    ]);
 
-    await Promise.all(
-      owners.map((owner) =>
-        this.create(
-          owner.id,
-          '🆕 New Order Pending Approval',
-          `Order #${(order as never as { orderNumber: string }).orderNumber} requires your approval`,
-          'ORDER_PLACED',
-          order.id,
-        ),
-      ),
-    );
+    const title = '🆕 New Order Pending Approval';
+    const message = `Order #${(order as never as { orderNumber: string }).orderNumber} was placed and is pending approval`;
+
+    await Promise.all([
+      ...owners.map((o) => this.create(o.id, title, message, 'ORDER_PLACED', order.id)),
+      ...staff.map((s) => this.create(s.id, title, message, 'ORDER_PLACED', order.id)),
+    ]);
   }
 
   @OnEvent('order.approved')

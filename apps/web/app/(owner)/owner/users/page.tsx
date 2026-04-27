@@ -2,11 +2,14 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Shield, UserCheck, Store } from 'lucide-react';
+import { Plus, Search, Shield, UserCheck, Store, UserX, RotateCcw } from 'lucide-react';
 import { useUsers } from '../../../../hooks/use-api';
 import { PageHeader, PageLoader, EmptyState, Pagination } from '../../../../components/shared';
 import { formatDate, type User, type Role } from '../../../../types';
 import OwnerShell from '../../../../components/layout/OwnerShell';
+import { api } from '../../../../lib/api-client';
+import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ROLE_ICONS: Record<Role, React.ReactNode> = {
   OWNER: <Shield className="h-4 w-4 text-purple-500" />,
@@ -24,11 +27,39 @@ export default function OwnerUsersPage() {
   const [page, setPage] = useState(1);
   const [role, setRole] = useState<Role | ''>('');
   const [search, setSearch] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
+  const qc = useQueryClient();
   const { data, isLoading } = useUsers({ page, limit: 20, role: role || undefined });
 
-  const filtered = data?.data?.filter((u: User) =>
-    !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
-  ) ?? [];
+  const filtered = data?.data?.filter((u: User) => {
+    const matchesSearch =
+      !search ||
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchesActive = showInactive ? true : u.isActive;
+    return matchesSearch && matchesActive;
+  }) ?? [];
+
+  async function deactivateUser(user: User) {
+    if (!confirm(`Deactivate ${user.name}? They will no longer be able to log in.`)) return;
+    try {
+      await api.delete(`/users/${user.id}`);
+      toast.success('User deactivated');
+      qc.invalidateQueries({ queryKey: ['users'] });
+    } catch (e: unknown) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed');
+    }
+  }
+
+  async function reactivateUser(user: User) {
+    try {
+      await api.post(`/users/${user.id}/reactivate`);
+      toast.success('User reactivated');
+      qc.invalidateQueries({ queryKey: ['users'] });
+    } catch (e: unknown) {
+      toast.error((e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed');
+    }
+  }
 
   return (
     <OwnerShell>
@@ -58,6 +89,13 @@ export default function OwnerUsersPage() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowInactive((s) => !s)}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showInactive ? 'bg-card' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+        >
+          {showInactive ? 'Showing inactive' : 'Hide inactive'}
+        </button>
       </div>
 
       {isLoading ? <PageLoader /> : !filtered.length ? (
@@ -75,6 +113,7 @@ export default function OwnerUsersPage() {
                   <th className="px-4 py-3 text-center font-medium">Status</th>
                   <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Joined</th>
                   <th className="px-4 py-3 text-center font-medium">Edit</th>
+                  <th className="px-4 py-3 text-center font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -107,6 +146,27 @@ export default function OwnerUsersPage() {
                         className="rounded-md px-3 py-1.5 text-xs font-medium border hover:bg-muted transition-colors">
                         Edit
                       </Link>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {user.isActive ? (
+                        <button
+                          type="button"
+                          onClick={() => deactivateUser(user)}
+                          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                        >
+                          <UserX className="h-3.5 w-3.5" />
+                          Remove
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => reactivateUser(user)}
+                          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Restore
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
