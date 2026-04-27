@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Package, Edit2, ToggleLeft } from 'lucide-react';
+import { Plus, Search, Package, Edit2, ToggleLeft, Trash2 } from 'lucide-react';
 import { useProducts } from '../../../../hooks/use-api';
 import { api } from '../../../../lib/api-client';
 import { PageHeader, PageLoader, EmptyState, Pagination, StatusBadge } from '../../../../components/shared';
@@ -24,6 +24,17 @@ export default function OwnerProductsPage() {
       qc.invalidateQueries({ queryKey: ['products'] });
     } catch {
       toast.error('Failed to update product');
+    }
+  }
+
+  async function deleteProduct(product: Product) {
+    if (!confirm(`Remove "${product.name}" from catalog?`)) return;
+    try {
+      await api.delete(`/products/${product.id}`);
+      toast.success('Product removed');
+      qc.invalidateQueries({ queryKey: ['products'] });
+    } catch {
+      toast.error('Failed to remove product');
     }
   }
 
@@ -105,6 +116,13 @@ export default function OwnerProductsPage() {
                           <button onClick={() => toggleActive(product)}
                             className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
                             <ToggleLeft className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteProduct(product)}
+                            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive transition-colors"
+                            title="Remove product"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

@@ -30,10 +30,14 @@ export default function NewAgencyPage() {
       <PageHeader title="New Agency" />
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-lg">
         <Card className="space-y-4">
-          {(['name', 'description', 'contactName', 'contactEmail', 'contactPhone'] as const).map((field) => (
+          {(['name', 'description', 'logoUrl', 'contactName', 'contactEmail', 'contactPhone'] as const).map((field) => (
             <div key={field}>
               <label className="mb-1.5 block text-sm font-medium capitalize">{field.replace(/([A-Z])/g, ' $1')}</label>
-              <input {...register(field)} className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <input
+                {...register(field)}
+                placeholder={field === 'logoUrl' ? 'https://...logo.png' : undefined}
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
           ))}
           <button type="submit" disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">

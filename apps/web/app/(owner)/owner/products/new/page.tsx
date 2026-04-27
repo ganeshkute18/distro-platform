@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Upload, X } from 'lucide-react';
 import { useProduct, useAgencies, useCategories } from '../../../../../hooks/use-api';
 import { api } from '../../../../../lib/api-client';
 import { Card, PageHeader } from '../../../../../components/shared';
@@ -20,13 +20,14 @@ const schema = z.object({
   description: z.string().optional(),
   unitType: z.enum(['BOX', 'CRATE', 'PACKET', 'PIECE', 'DOZEN', 'KG', 'LITRE']),
   unitsPerCase: z.coerce.number().int().min(1),
-  pricePerUnit: z.coerce.number().int().min(0, 'Price required'),
+  priceInRupees: z.coerce.number().min(0, 'Price required'),
   taxPercent: z.coerce.number().min(0).max(100),
   agencyId: z.string().min(1, 'Agency required'),
   categoryId: z.string().min(1, 'Category required'),
   minOrderQty: z.coerce.number().int().min(1),
   maxOrderQty: z.coerce.number().int().optional(),
   isFeatured: z.boolean(),
+  imageUrls: z.array(z.string().url()).optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -41,9 +42,12 @@ export default function ProductFormPage() {
   const { data: agencies } = useAgencies();
   const { data: categories } = useCategories();
 
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { unitType: 'BOX', unitsPerCase: 1, taxPercent: 18, minOrderQty: 1, isFeatured: false },
+    defaultValues: { unitType: 'BOX', unitsPerCase: 1, taxPercent: 18, minOrderQty: 1, isFeatured: false, imageUrls: [] },
   });
 
   useEffect(() => {
@@ -54,24 +58,53 @@ export default function ProductFormPage() {
         description: product.description ?? '',
         unitType: product.unitType,
         unitsPerCase: product.unitsPerCase,
-        pricePerUnit: product.pricePerUnit,
+        priceInRupees: Number((product.pricePerUnit / 100).toFixed(2)),
         taxPercent: Number(product.taxPercent),
         agencyId: product.agency?.id,
         categoryId: product.category?.id,
         minOrderQty: product.minOrderQty,
         maxOrderQty: product.maxOrderQty ?? undefined,
         isFeatured: product.isFeatured,
+        imageUrls: product.imageUrls ?? [],
       });
+      setExistingImages(product.imageUrls ?? []);
     }
   }, [product, isEdit, reset]);
 
+  async function uploadProductImages(productId: string, files: File[]) {
+    if (!files.length) return;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    const token = localStorage.getItem('accessToken');
+    const formData = new FormData();
+    files.forEach((file) => formData.append('images', file));
+
+    const res = await fetch(`${baseUrl}/products/${productId}/images`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Image upload failed');
+  }
+
   async function onSubmit(data: FormData) {
     try {
+      const { priceInRupees, ...rest } = data;
+      const payload = {
+        ...rest,
+        pricePerUnit: Math.round(data.priceInRupees * 100),
+        imageUrls: existingImages,
+      };
       if (isEdit) {
-        await api.patch(`/products/${productId}`, data);
+        await api.patch(`/products/${productId}`, payload);
+        if (selectedFiles.length) {
+          await uploadProductImages(productId!, selectedFiles);
+        }
         toast.success('Product updated!');
       } else {
-        await api.post('/products', data);
+        const created = await api.post<{ id: string }>('/products', payload);
+        if (selectedFiles.length) {
+          await uploadProductImages(created.id, selectedFiles);
+        }
         toast.success('Product created!');
       }
       qc.invalidateQueries({ queryKey: ['products'] });
@@ -115,17 +148,56 @@ export default function ProductFormPage() {
                 <label className="mb-1.5 block text-sm font-medium">Description</label>
                 <textarea {...register('description')} rows={3} className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary resize-none" placeholder="Product description…" />
               </div>
+              <div className="mt-4">
+                <label className="mb-1.5 block text-sm font-medium">Product Images</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                  className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Select product photos manually. They will upload on save.
+                </p>
+              </div>
+              {!!existingImages.length && (
+                <div className="mt-4">
+                  <label className="mb-2 block text-sm font-medium">Existing Images</label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {existingImages.map((url) => (
+                      <div key={url} className="flex items-center gap-2 rounded-lg border p-2">
+                        <img src={url} alt="Product" className="h-12 w-12 rounded object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setExistingImages((prev) => prev.filter((u) => u !== url))}
+                          className="ml-auto rounded p-1 hover:bg-muted"
+                          title="Remove image"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!!selectedFiles.length && (
+                <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                  <Upload className="h-3.5 w-3.5" />
+                  {selectedFiles.length} new file(s) selected
+                </p>
+              )}
             </Card>
 
             <Card>
               <h3 className="mb-4 font-semibold">Pricing & Units</h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Price (paise) *</label>
-                  <input {...register('pricePerUnit')} type="number" min="0"
+                  <label className="mb-1.5 block text-sm font-medium">Price (INR) *</label>
+                  <input {...register('priceInRupees')} type="number" min="0" step="0.01"
                     className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="8000 = ₹80" />
-                  {errors.pricePerUnit && <p className="mt-1 text-xs text-destructive">{errors.pricePerUnit.message}</p>}
+                    placeholder="80.00" />
+                  {errors.priceInRupees && <p className="mt-1 text-xs text-destructive">{errors.priceInRupees.message}</p>}
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">Tax %</label>

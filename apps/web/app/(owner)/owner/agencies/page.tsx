@@ -19,7 +19,13 @@ export default function AgenciesPage() {
           {agencies.map((agency) => (
             <div key={agency.id} className="rounded-xl border bg-card p-5 hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-5 w-5 text-primary" /></div>
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+                  {agency.logoUrl ? (
+                    <img src={agency.logoUrl} alt={agency.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Building2 className="h-5 w-5 text-primary" />
+                  )}
+                </div>
                 <Link href={`/owner/agencies/${agency.id}/edit`} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"><Edit2 className="h-4 w-4" /></Link>
               </div>
               <h3 className="font-semibold">{agency.name}</h3>
