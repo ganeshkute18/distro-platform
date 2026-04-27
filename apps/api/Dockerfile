@@ -40,7 +40,8 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 
 # Install production deps only
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts \
+  && npm install prisma@5.14.0 --no-save
 
 # Copy built output and prisma
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
@@ -51,4 +52,4 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 EXPOSE 4000
 
 # Run migrations then start the server
-CMD ["sh", "-c", "cd apps/api && npx prisma migrate deploy && node dist/src/main.js"]
+CMD ["sh", "-c", "cd apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main.js"]
