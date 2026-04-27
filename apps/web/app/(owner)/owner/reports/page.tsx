@@ -6,6 +6,7 @@ import { useSalesSummary, useTopProducts, useLowStock, useOrders } from '../../.
 import { PageHeader, Card, CardHeader, CardTitle, PageLoader, StatusBadge } from '../../../../components/shared';
 import { formatCurrency, formatDate, type Order } from '../../../../types';
 import OwnerShell from '../../../../components/layout/OwnerShell';
+import { DatePicker } from '../../../../components/shared/DatePicker';
 import { TrendingUp, Package, AlertTriangle, ClipboardList } from 'lucide-react';
 
 const TABS = ['Sales', 'Top Products', 'Low Stock', 'Pending Orders'] as const;
@@ -33,15 +34,13 @@ export default function ReportsPage() {
 
       {/* Date filters */}
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">From</label>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <label className="text-sm font-medium whitespace-nowrap">From</label>
+          <DatePicker value={from} onChange={setFrom} placeholder="Start date" />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">To</label>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
+        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+          <label className="text-sm font-medium whitespace-nowrap">To</label>
+          <DatePicker value={to} onChange={setTo} placeholder="End date" />
         </div>
         {(from || to) && (
           <button onClick={() => { setFrom(''); setTo(''); }} className="text-sm text-muted-foreground hover:text-foreground">

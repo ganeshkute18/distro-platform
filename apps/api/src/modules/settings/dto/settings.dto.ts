@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateSettingsDto {
   @ApiPropertyOptional()
@@ -10,12 +10,12 @@ export class UpdateSettingsDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({ require_tld: false }, { message: 'companyLogoUrl must be a valid URL' })
+  @IsString()
   companyLogoUrl?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({ require_tld: false }, { message: 'paymentQrUrl must be a valid URL' })
+  @IsString()
   paymentQrUrl?: string;
 
   @ApiPropertyOptional()

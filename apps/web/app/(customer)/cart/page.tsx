@@ -7,9 +7,11 @@ import { useCartStore } from '../../../store/cart.store';
 import { useAppSettings, useCreateOrder } from '../../../hooks/use-api';
 import { formatCurrency, type CartItem } from '../../../types';
 import CustomerShell from '../../../components/layout/CustomerShell';
+import { DatePicker } from '../../../components/shared/DatePicker';
 import Link from 'next/link';
 import { api } from '../../../lib/api-client';
 import toast from 'react-hot-toast';
+import { compressImageToBase64 } from '../../../lib/image-utils';
 
 export default function CartPage() {
   const router = useRouter();
@@ -20,8 +22,9 @@ export default function CartPage() {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'QR'>('COD');
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptFile, setReceiptFile] = useState<string>('');
   const [paymentNote, setPaymentNote] = useState('');
+  const [imageProcessing, setImageProcessing] = useState(false);
 
   const subtotal = items.reduce((sum, item) => sum + item.product.pricePerUnit * item.quantity, 0);
   const tax = items.reduce((sum, item) => {
@@ -42,20 +45,26 @@ export default function CartPage() {
       deliveryDate: deliveryDate || undefined,
       deliveryAddress: deliveryAddress || undefined,
       paymentMethod,
+      paymentReceiptUrl: receiptFile || undefined,
       paymentReceiptNote: paymentNote || undefined,
     });
-
-    if (paymentMethod === 'QR' && receiptFile) {
-      const formData = new FormData();
-      formData.append('receipt', receiptFile);
-      if (paymentNote) formData.append('note', paymentNote);
-      await api.patch(`/orders/${(order as any).id}/payment-receipt`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    }
     clear();
     toast.success('Order placed successfully');
     router.push('/orders');
+  }
+
+  async function onReceiptSelect(file?: File) {
+    if (!file) return;
+    try {
+      setImageProcessing(true);
+      const compressed = await compressImageToBase64(file, 200);
+      setReceiptFile(compressed);
+      toast.success('Receipt attached');
+    } catch (error: unknown) {
+      toast.error((error as Error)?.message || 'Failed to process receipt');
+    } finally {
+      setImageProcessing(false);
+    }
   }
 
   if (!items.length) {
@@ -163,12 +172,11 @@ export default function CartPage() {
             <div className="mt-4 space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium">Delivery Date (optional)</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={deliveryDate}
-                  onChange={(e) => setDeliveryDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  onChange={setDeliveryDate}
+                  placeholder="Select delivery date"
+                  minDate={new Date()}
                 />
               </div>
               <div>
@@ -215,9 +223,10 @@ export default function CartPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+                    onChange={(e) => onReceiptSelect(e.target.files?.[0])}
                     className="w-full rounded-lg border bg-background px-3 py-2 text-xs"
                   />
+                  {receiptFile ? <img src={receiptFile} alt="Receipt preview" className="h-28 w-full rounded-lg border object-contain bg-white p-1" /> : null}
                   <input
                     type="text"
                     value={paymentNote}
@@ -231,10 +240,10 @@ export default function CartPage() {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={createOrder.isPending}
+              disabled={createOrder.isPending || imageProcessing}
               className="mt-4 w-full rounded-lg bg-primary py-3 text-sm font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity"
             >
-              {createOrder.isPending ? 'Placing Order…' : 'Place Order'}
+              {imageProcessing ? 'Processing receipt…' : createOrder.isPending ? 'Placing Order…' : 'Place Order'}
             </button>
 
             <p className="mt-2 text-center text-xs text-muted-foreground">

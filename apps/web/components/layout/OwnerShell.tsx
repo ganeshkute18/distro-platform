@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, PackageCheck, Package,
-  Building2, Tag, Users, BarChart3, LogOut, Bell,
+  Building2, Tag, Users, BarChart3, LogOut,
   ChevronLeft, ChevronRight, Menu, X, AlertTriangle, ClipboardList, Settings, User,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
-import { useNotificationStore } from '../../store/notification.store';
 import { api } from '../../lib/api-client';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useAppSettings } from '../../hooks/use-api';
+import { NotificationBell } from '../shared/NotificationBell';
 
 const NAV_ITEMS = [
   { href: '/owner/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -35,7 +35,6 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const { user, clear } = useAuthStore();
-  const { unreadCount } = useNotificationStore();
   const { data: appSettings } = useAppSettings();
 
   async function handleLogout() {
@@ -152,24 +151,25 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
 
           <div className="flex items-center gap-4 ml-auto">
             <ThemeToggle />
-            {/* Notification bell */}
-            <Link href="/owner/dashboard" className="relative">
-              <Bell className="h-5 w-5 text-muted-foreground" />
-              {unreadCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
+            <NotificationBell />
           </div>
         </header>
 
         {/* Page */}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-7xl p-6">
+          <div className="mx-auto max-w-7xl p-6 pb-24 md:pb-6">
             {children}
           </div>
         </main>
+
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-card md:hidden">
+          {NAV_ITEMS.filter((item) => ['/owner/dashboard', '/owner/orders', '/owner/products', '/owner/users'].includes(item.href)).map((item) => (
+            <Link key={item.href} href={item.href} className={cn('flex h-14 flex-1 flex-col items-center justify-center text-[11px]', pathname.startsWith(item.href) ? 'text-primary' : 'text-muted-foreground')}>
+              <item.icon className="mb-0.5 h-4 w-4" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ import { PageLoader, StatusBadge, Card, CardHeader, CardTitle } from '../../../.
 import { formatCurrency, formatDate, type OrderItem, type OrderStatusHistory, ORDER_STATUS_LABEL } from '../../../../types';
 import CustomerShell from '../../../../components/layout/CustomerShell';
 import toast from 'react-hot-toast';
+import { downloadInvoicePdf } from '../../../../lib/invoice-pdf';
+import { useAppSettings } from '../../../../hooks/use-api';
 
 const STATUS_STEPS = ['PENDING_APPROVAL', 'APPROVED', 'PROCESSING', 'DISPATCHED', 'DELIVERED'] as const;
 
@@ -17,6 +19,7 @@ export default function CustomerOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const router = useRouter();
   const { data: order, isLoading } = useOrder(orderId);
+  const { data: settings } = useAppSettings();
 
   async function handleRepeat() {
     try {
@@ -29,13 +32,8 @@ export default function CustomerOrderDetailPage() {
   }
 
   async function handleInvoiceDownload() {
-    const blob = await api.get<Blob>(`/orders/${orderId}/invoice`, { responseType: 'blob' } as any);
-    const url = window.URL.createObjectURL(blob as any);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `invoice-${order?.orderNumber || orderId}.html`;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
+    if (!order) return;
+    downloadInvoicePdf(order as any, settings as any);
   }
 
   if (isLoading) return <CustomerShell><PageLoader /></CustomerShell>;
@@ -180,9 +178,13 @@ export default function CustomerOrderDetailPage() {
             </p>
             {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
             {order.paymentReceiptUrl && (
-              <a href={order.paymentReceiptUrl} target="_blank" className="mt-1 inline-block text-sm text-primary underline">
-                View uploaded receipt
-              </a>
+              order.paymentReceiptUrl.startsWith('data:image') ? (
+                <img src={order.paymentReceiptUrl} alt="Uploaded payment receipt" className="mt-2 h-36 w-full rounded-lg border object-contain bg-white p-1" />
+              ) : (
+                <a href={order.paymentReceiptUrl} target="_blank" className="mt-1 inline-block text-sm text-primary underline">
+                  View uploaded receipt
+                </a>
+              )
             )}
           </Card>
           {order.notes && (

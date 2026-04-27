@@ -13,6 +13,7 @@ import { Card, PageHeader } from '../../../../../components/shared';
 import OwnerShell from '../../../../../components/layout/OwnerShell';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { compressImageToBase64 } from '../../../../../lib/image-utils';
 
 const schema = z.object({
   sku: z.string().min(1, 'SKU required'),
@@ -27,7 +28,7 @@ const schema = z.object({
   minOrderQty: z.coerce.number().int().min(1),
   maxOrderQty: z.coerce.number().int().optional(),
   isFeatured: z.boolean(),
-  imageUrls: z.array(z.string().url()).optional(),
+  imageUrls: z.array(z.string()).optional(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -42,7 +43,8 @@ export default function ProductFormPage() {
   const { data: agencies } = useAgencies();
   const { data: categories } = useCategories();
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [imageProcessing, setImageProcessing] = useState(false);
   const [existingImages, setExistingImages] = useState<string[]>([]);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -71,19 +73,18 @@ export default function ProductFormPage() {
     }
   }, [product, isEdit, reset]);
 
-  async function uploadProductImages(productId: string, files: File[]) {
-    if (!files.length) return;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
-    const token = localStorage.getItem('accessToken');
-    const formData = new FormData();
-    files.forEach((file) => formData.append('images', file));
-
-    const res = await fetch(`${baseUrl}/products/${productId}/images`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: formData,
-    });
-    if (!res.ok) throw new Error('Image upload failed');
+  async function onSelectImages(files: FileList | null) {
+    if (!files?.length) return;
+    try {
+      setImageProcessing(true);
+      const compressed = await Promise.all(Array.from(files).map((file) => compressImageToBase64(file, 200)));
+      setSelectedFiles(compressed);
+      toast.success(`${compressed.length} image(s) attached`);
+    } catch (error: unknown) {
+      toast.error((error as Error)?.message || 'Failed to process images');
+    } finally {
+      setImageProcessing(false);
+    }
   }
 
   async function onSubmit(data: FormData) {
@@ -92,19 +93,13 @@ export default function ProductFormPage() {
       const payload = {
         ...rest,
         pricePerUnit: Math.round(data.priceInRupees * 100),
-        imageUrls: existingImages,
+        imageUrls: [...existingImages, ...selectedFiles],
       };
       if (isEdit) {
         await api.patch(`/products/${productId}`, payload);
-        if (selectedFiles.length) {
-          await uploadProductImages(productId!, selectedFiles);
-        }
         toast.success('Product updated!');
       } else {
-        const created = await api.post<{ id: string }>('/products', payload);
-        if (selectedFiles.length) {
-          await uploadProductImages(created.id, selectedFiles);
-        }
+        await api.post<{ id: string }>('/products', payload);
         toast.success('Product created!');
       }
       qc.invalidateQueries({ queryKey: ['products'] });
@@ -154,19 +149,19 @@ export default function ProductFormPage() {
                   type="file"
                   accept="image/*"
                   multiple
-                  onChange={(e) => setSelectedFiles(Array.from(e.target.files ?? []))}
+                  onChange={(e) => onSelectImages(e.target.files)}
                   className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Select product photos manually. They will upload on save.
+                  Select product photos from your device. Images are compressed before save.
                 </p>
               </div>
               {!!existingImages.length && (
                 <div className="mt-4">
                   <label className="mb-2 block text-sm font-medium">Existing Images</label>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {existingImages.map((url) => (
-                      <div key={url} className="flex items-center gap-2 rounded-lg border p-2">
+                    {existingImages.map((url, idx) => (
+                      <div key={`${url.slice(0, 20)}-${idx}`} className="flex items-center gap-2 rounded-lg border p-2">
                         <img src={url} alt="Product" className="h-12 w-12 rounded object-cover" />
                         <button
                           type="button"
@@ -182,10 +177,17 @@ export default function ProductFormPage() {
                 </div>
               )}
               {!!selectedFiles.length && (
-                <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                  <Upload className="h-3.5 w-3.5" />
-                  {selectedFiles.length} new file(s) selected
-                </p>
+                <div className="mt-3">
+                  <p className="mb-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <Upload className="h-3.5 w-3.5" />
+                    {selectedFiles.length} new compressed image(s) selected
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {selectedFiles.map((src, idx) => (
+                      <img key={`new-${idx}`} src={src} alt="New selection preview" className="h-24 w-full rounded-lg border object-cover" />
+                    ))}
+                  </div>
+                </div>
               )}
             </Card>
 
@@ -263,10 +265,10 @@ export default function ProductFormPage() {
               </div>
             </Card>
 
-            <button type="submit" disabled={isSubmitting}
+            <button type="submit" disabled={isSubmitting || imageProcessing}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60 transition-opacity">
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Saving…' : isEdit ? 'Update Product' : 'Create Product'}
+              {(isSubmitting || imageProcessing) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {imageProcessing ? 'Processing images…' : isSubmitting ? 'Saving…' : isEdit ? 'Update Product' : 'Create Product'}
             </button>
           </div>
         </div>

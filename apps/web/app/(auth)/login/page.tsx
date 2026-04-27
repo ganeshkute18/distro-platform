@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Package } from 'lucide-react';
+import { Loader2, Package, UserPlus, LogIn } from 'lucide-react';
 import { api } from '../../../lib/api-client';
 import { useAuthStore } from '../../../store/auth.store';
 import toast from 'react-hot-toast';
@@ -15,6 +15,15 @@ const schema = z.object({
   password: z.string().min(6, 'Password required'),
 });
 type FormData = z.infer<typeof schema>;
+
+const signupSchema = z.object({
+  name: z.string().min(2, 'Name required'),
+  email: z.string().email('Valid email required'),
+  password: z.string().min(8, 'Min 8 characters'),
+  phone: z.string().min(8, 'Phone required'),
+  address: z.string().min(5, 'Delivery address required'),
+});
+type SignupFormData = z.infer<typeof signupSchema>;
 
 const DEV_ACCOUNTS = [
   {
@@ -53,6 +62,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
   const [filledEmail, setFilledEmail] = useState<string | null>(null);
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
 
   const {
     register,
@@ -62,6 +72,21 @@ export default function LoginPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+  const signupForm = useForm<SignupFormData>({ resolver: zodResolver(signupSchema) });
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const sessionExpiresAt = Number(localStorage.getItem('sessionExpiresAt') || '0');
+    const userJson = localStorage.getItem('sessionUser');
+    if (!token || !userJson || !sessionExpiresAt || Date.now() > sessionExpiresAt) return;
+    try {
+      const user = JSON.parse(userJson) as { role: 'OWNER' | 'STAFF' | 'CUSTOMER' };
+      const redirectMap = { OWNER: '/owner/dashboard', STAFF: '/staff/orders', CUSTOMER: '/catalog' };
+      router.replace(redirectMap[user.role]);
+    } catch {
+      // ignore bad session payload
+    }
+  }, [router]);
 
   function fillAccount(email: string, password: string) {
     setValue('email', email, { shouldValidate: true });
@@ -80,6 +105,8 @@ export default function LoginPage() {
 
       localStorage.setItem('accessToken', res.accessToken);
       localStorage.setItem('refreshToken', res.refreshToken);
+      localStorage.setItem('sessionUser', JSON.stringify(res.user));
+      localStorage.setItem('sessionExpiresAt', String(Date.now() + 48 * 60 * 60 * 1000));
       setAuth(res.user, res.accessToken);
 
       const redirectMap = { OWNER: '/owner/dashboard', STAFF: '/staff/orders', CUSTOMER: '/catalog' };
@@ -87,6 +114,25 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast.error(message || 'Invalid credentials');
+    }
+  }
+
+  async function onSignup(data: SignupFormData) {
+    try {
+      await api.post('/auth/signup/customer', {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+        address: data.address,
+      });
+      toast.success('Signup successful. Please sign in.');
+      setMode('signin');
+      setValue('email', data.email);
+      setValue('password', data.password);
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || 'Signup failed');
     }
   }
 
@@ -149,10 +195,16 @@ export default function LoginPage() {
         </div>
         )}
 
-        {/* ───── Login Form ───── */}
-        <div className="rounded-2xl border bg-card p-8 shadow-sm">
-          <h2 className="mb-6 text-xl font-semibold">Sign in to your account</h2>
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+          <button type="button" onClick={() => setMode('signin')} className={`flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${mode === 'signin' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}><LogIn className="h-4 w-4" /> Sign In</button>
+          <button type="button" onClick={() => setMode('signup')} className={`flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold ${mode === 'signup' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}><UserPlus className="h-4 w-4" /> Sign Up</button>
+        </div>
 
+        {/* ───── Auth Form ───── */}
+        <div className="rounded-2xl border bg-card p-8 shadow-sm">
+          <h2 className="mb-6 text-xl font-semibold">{mode === 'signin' ? 'Sign in to your account' : 'Create customer account'}</h2>
+
+          {mode === 'signin' ? (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium" htmlFor="email">
@@ -198,6 +250,19 @@ export default function LoginPage() {
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+          ) : (
+          <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
+            <div><label className="mb-1.5 block text-sm font-medium">Full Name</label><input {...signupForm.register('name')} className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <div><label className="mb-1.5 block text-sm font-medium">Email</label><input type="email" {...signupForm.register('email')} className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <div><label className="mb-1.5 block text-sm font-medium">Password</label><input type="password" {...signupForm.register('password')} className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <div><label className="mb-1.5 block text-sm font-medium">Phone Number</label><input {...signupForm.register('phone')} className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <div><label className="mb-1.5 block text-sm font-medium">Delivery Address</label><textarea {...signupForm.register('address')} rows={3} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <button type="submit" disabled={signupForm.formState.isSubmitting} className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60">
+              {signupForm.formState.isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {signupForm.formState.isSubmitting ? 'Creating account…' : 'Create Account'}
+            </button>
+          </form>
+          )}
         </div>
 
       </div>

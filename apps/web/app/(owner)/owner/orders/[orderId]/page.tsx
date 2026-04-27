@@ -4,23 +4,20 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Package } from 'lucide-react';
 import { useOrder } from '../../../../../hooks/use-api';
-import { api } from '../../../../../lib/api-client';
 import { PageLoader, StatusBadge, Card, CardHeader, CardTitle } from '../../../../../components/shared';
 import { formatCurrency, formatDate, type OrderItem, type OrderStatusHistory, ORDER_STATUS_LABEL } from '../../../../../types';
 import OwnerShell from '../../../../../components/layout/OwnerShell';
+import { useAppSettings } from '../../../../../hooks/use-api';
+import { downloadInvoicePdf } from '../../../../../lib/invoice-pdf';
 
 export default function OwnerOrderDetailPage() {
   const { orderId } = useParams<{ orderId: string }>();
   const { data: order, isLoading } = useOrder(orderId);
+  const { data: settings } = useAppSettings();
 
   async function handleInvoiceDownload() {
-    const blob = await api.get<Blob>(`/orders/${orderId}/invoice`, { responseType: 'blob' } as any);
-    const url = window.URL.createObjectURL(blob as any);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `invoice-${order?.orderNumber || orderId}.html`;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
+    if (!order) return;
+    downloadInvoicePdf(order as any, settings as any);
   }
 
   if (isLoading) return <OwnerShell><PageLoader /></OwnerShell>;
@@ -69,7 +66,11 @@ export default function OwnerOrderDetailPage() {
             <p className="text-sm text-muted-foreground">Method: {order.paymentMethod === 'QR' ? 'QR Payment' : 'Cash on Delivery'}</p>
             {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
             {order.paymentReceiptUrl && (
-              <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+              order.paymentReceiptUrl.startsWith('data:image') ? (
+                <img src={order.paymentReceiptUrl} alt="Payment receipt" className="mt-2 h-32 w-full rounded-lg border object-contain bg-white p-1" />
+              ) : (
+                <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+              )
             )}
           </Card>
           {order.rejectionReason && <Card><CardTitle className="mb-2 text-destructive">Rejection Reason</CardTitle><p className="text-sm text-muted-foreground">{order.rejectionReason}</p></Card>}

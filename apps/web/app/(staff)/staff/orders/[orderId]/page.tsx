@@ -142,7 +142,11 @@ export default function StaffOrderDetailPage() {
             <p className="text-sm text-muted-foreground">Method: {order.paymentMethod === 'QR' ? 'QR Payment' : 'Cash on Delivery'}</p>
             {order.paymentStatus && <p className="text-sm text-muted-foreground">Status: {order.paymentStatus}</p>}
             {order.paymentReceiptUrl && (
-              <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+              order.paymentReceiptUrl.startsWith('data:image') ? (
+                <img src={order.paymentReceiptUrl} alt="Payment receipt" className="mt-2 h-32 w-full rounded-lg border object-contain bg-white p-1" />
+              ) : (
+                <a href={order.paymentReceiptUrl} target="_blank" className="text-sm text-primary underline">View receipt</a>
+              )
             )}
           </Card>
 

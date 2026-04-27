@@ -10,6 +10,7 @@ import { useCartStore } from '../../store/cart.store';
 import { api } from '../../lib/api-client';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useAppSettings } from '../../hooks/use-api';
+import { NotificationBell } from '../shared/NotificationBell';
 
 const NAV_ITEMS = [
   { href: '/catalog', icon: ShoppingBag, label: 'Catalog' },
@@ -59,6 +60,7 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            <NotificationBell />
             {/* Cart */}
             <Link href="/cart" className="relative rounded-lg p-2 hover:bg-accent">
               <ShoppingCart className="h-5 w-5" />

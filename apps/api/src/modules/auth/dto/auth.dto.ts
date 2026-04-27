@@ -52,6 +52,16 @@ export class SignupCustomerDto {
   @IsOptional()
   @IsString()
   businessName?: string;
+
+  @ApiProperty({ example: '+919876543210', required: false })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiProperty({ example: 'Shop 4, Lake View Society, Nashik', required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
 }
 
 export class SignupStaffDto {

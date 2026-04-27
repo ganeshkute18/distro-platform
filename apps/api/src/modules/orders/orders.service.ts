@@ -313,7 +313,7 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: {
         paymentMethod: 'QR',
@@ -323,5 +323,10 @@ export class OrdersService {
       } as any,
       include: ORDER_INCLUDE,
     });
+
+    // Emit payment event for notifications
+    this.eventEmitter.emit('payment.made', updated);
+
+    return updated;
   }
 }

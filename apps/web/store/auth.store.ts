@@ -27,7 +27,9 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (user, accessToken) => {
         // Write cookie for middleware route-protection
         if (typeof document !== 'undefined') {
-          document.cookie = `session=${btoa(JSON.stringify(user))}; path=/; max-age=604800; SameSite=Lax`;
+          document.cookie = `session=${btoa(JSON.stringify(user))}; path=/; max-age=172800; SameSite=Lax`;
+          localStorage.setItem('sessionUser', JSON.stringify(user));
+          localStorage.setItem('sessionExpiresAt', String(Date.now() + 48 * 60 * 60 * 1000));
         }
         set({ user, accessToken });
       },
@@ -36,6 +38,8 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          localStorage.removeItem('sessionUser');
+          localStorage.removeItem('sessionExpiresAt');
           document.cookie = 'session=; path=/; max-age=0';
         }
         set({ user: null, accessToken: null });
@@ -45,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.setItem('accessToken', access);
           localStorage.setItem('refreshToken', refresh);
+          localStorage.setItem('sessionExpiresAt', String(Date.now() + 48 * 60 * 60 * 1000));
         }
         set({ accessToken: access });
       },

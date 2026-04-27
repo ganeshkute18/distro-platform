@@ -198,11 +198,6 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    // Generate verification token
-    const verificationToken = this.generateVerificationToken();
-    const verificationTokenExpiresAt = new Date();
-    verificationTokenExpiresAt.setHours(verificationTokenExpiresAt.getHours() + 24);
-
     // Create customer user
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
@@ -212,10 +207,10 @@ export class AuthService {
         passwordHash,
         role: Role.CUSTOMER,
         businessName: dto.businessName,
+        phone: dto.phone,
+        address: dto.address,
         isActive: true,
-        emailVerified: false,
-        verificationToken,
-        verificationTokenExpiresAt,
+        emailVerified: true,
         approvalStatus: 'APPROVED', // Customers auto-approved
       },
     });
@@ -228,17 +223,10 @@ export class AuthService {
       entityId: user.id,
     });
 
-    // Send verification email
-    try {
-      await this.emailService.sendVerificationEmail(user.email, verificationToken);
-    } catch (error) {
-      console.error('Failed to send verification email:', error);
-    }
-
     return {
-      message: 'Account created successfully. Please verify your email to login.',
+      message: 'Account created successfully. You can sign in now.',
       email: user.email,
-      requiresEmailVerification: true,
+      requiresEmailVerification: false,
     };
   }
 
@@ -398,11 +386,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN', '15m'),
+        expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN', '48h'),
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '30d'),
       }),
     ]);
 
