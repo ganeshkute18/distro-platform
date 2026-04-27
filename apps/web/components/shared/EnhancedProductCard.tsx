@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, ShoppingCart, Star } from 'lucide-react';
+import { Heart, ShoppingCart } from 'lucide-react';
 import { type Product } from '../../types';
 
 interface EnhancedProductCardProps {
@@ -34,9 +34,9 @@ export function EnhancedProductCard({
     onWishlist?.(product.id);
   };
 
-  const inStock = product.stock && product.stock > 0;
-  const discount = product.discount ? Math.round(product.discount) : 0;
-  const originalPrice = product.price;
+  const inStock = product.inventory?.availableStock && product.inventory.availableStock > 0;
+  const discount = 0; // No discount field on Product type
+  const originalPrice = product.pricePerUnit;
   const finalPrice = discount > 0 ? originalPrice * (1 - discount / 100) : originalPrice;
 
   return (
@@ -46,9 +46,9 @@ export function EnhancedProductCard({
         {!imageLoaded && (
           <div className="absolute inset-0 bg-muted animate-pulse" />
         )}
-        {product.images && product.images.length > 0 ? (
+        {product.imageUrls && product.imageUrls.length > 0 ? (
           <img
-            src={product.images[0]}
+            src={product.imageUrls[0]}
             alt={product.name}
             onLoad={() => setImageLoaded(true)}
             className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${
@@ -102,27 +102,6 @@ export function EnhancedProductCard({
             <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
               {product.description}
             </p>
-          )}
-
-          {/* Rating */}
-          {product.rating && (
-            <div className="flex items-center gap-1 mb-3">
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-4 h-4 ${
-                      i < Math.floor(product.rating!)
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                ({product.rating.toFixed(1)})
-              </span>
-            </div>
           )}
 
           {/* Pricing */}
