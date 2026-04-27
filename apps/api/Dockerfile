@@ -1,11 +1,13 @@
 # ─── Builder ─────────────────────────────────────────────────────────────────
 # Build context: repository ROOT (Railway default)
 # This Dockerfile properly handles the npm workspaces monorepo structure.
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install build tools needed for native modules
-RUN apk add --no-cache python3 make g++
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 # 1. Copy workspace manifest files first (for better layer caching)
 COPY package.json package-lock.json turbo.json ./
@@ -26,13 +28,15 @@ RUN npx prisma generate --schema=./apps/api/prisma/schema.prisma
 RUN npm run build --workspace=apps/api
 
 # ─── Production ───────────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:20-bookworm-slim AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
 
 # Install OpenSSL (Prisma) + build tools (bcrypt native)
-RUN apk add --no-cache openssl python3 make g++
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace manifests for production install
 COPY package.json package-lock.json ./
