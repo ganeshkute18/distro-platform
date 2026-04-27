@@ -8,6 +8,7 @@ import { useAppSettings, useCreateOrder } from '../../../hooks/use-api';
 import { formatCurrency, type CartItem } from '../../../types';
 import CustomerShell from '../../../components/layout/CustomerShell';
 import { DatePicker } from '../../../components/shared/DatePicker';
+import { NoCartItems } from '../../../components/shared/EmptyState';
 import Link from 'next/link';
 import { api } from '../../../lib/api-client';
 import toast from 'react-hot-toast';
@@ -70,10 +71,8 @@ export default function CartPage() {
   if (!items.length) {
     return (
       <CustomerShell>
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <ShoppingBag className="mb-4 h-16 w-16 text-muted-foreground/30" />
-          <h2 className="mb-2 text-xl font-semibold">Your cart is empty</h2>
-          <p className="mb-6 text-sm text-muted-foreground">Add products from the catalog to get started.</p>
+        <NoCartItems />
+        <div className="mt-8 text-center">
           <Link
             href="/catalog"
             className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"

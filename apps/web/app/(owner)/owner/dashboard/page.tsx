@@ -4,7 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import { ShoppingCart, Clock, TrendingUp, Package, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
 import { useDashboard, useOrders } from '../../../../hooks/use-api';
-import { StatCard, PageHeader, Card, CardHeader, CardTitle, PageLoader, StatusBadge } from '../../../../components/shared';
+import { StatCard, PageHeader, Card, CardHeader, CardTitle, StatusBadge } from '../../../../components/shared';
+import { SkeletonDashboard, SkeletonTable } from '../../../../components/shared/SkeletonLoader';
+import { SectionHeading, ListItem } from '../../../../components/shared/DashboardComponents';
 import { formatCurrency, formatDate, type Order } from '../../../../types';
 import OwnerShell from '../../../../components/layout/OwnerShell';
 
@@ -12,7 +14,7 @@ export default function OwnerDashboardPage() {
   const { data: dashboard, isLoading } = useDashboard();
   const { data: pendingOrders } = useOrders({ status: 'PENDING_APPROVAL', limit: 5 });
 
-  if (isLoading) return <OwnerShell><PageLoader /></OwnerShell>;
+  if (isLoading) return <OwnerShell><SkeletonDashboard /></OwnerShell>;
 
   const stats = (dashboard as { stats?: Record<string, number> })?.stats;
   const recent = (dashboard as { recentOrders?: Order[] })?.recentOrders ?? [];
@@ -53,13 +55,13 @@ export default function OwnerDashboardPage() {
         {/* Pending Approvals */}
         <Card>
           <CardHeader>
-            <CardTitle>Pending Approvals</CardTitle>
-            <Link
-              href="/owner/approvals"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
+            <SectionHeading 
+              title="Pending Approvals"
+              action={{
+                label: 'View all',
+                onClick: () => window.location.href = '/owner/approvals'
+              }}
+            />
           </CardHeader>
 
           {!pendingOrders?.data?.length ? (
@@ -67,24 +69,16 @@ export default function OwnerDashboardPage() {
               ✅ No pending approvals
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 p-4">
               {pendingOrders.data.map((order: Order) => (
-                <Link
-                  key={order.id}
-                  href={`/owner/approvals/${order.id}`}
-                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{order.orderNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {order.customer?.businessName || order.customer?.name}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">{formatCurrency(order.totalAmount)}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
-                  </div>
-                </Link>
+                <div key={order.id} onClick={() => window.location.href = `/owner/approvals/${order.id}`}>
+                  <ListItem
+                    primary={order.orderNumber}
+                    secondary={order.customer?.businessName || order.customer?.name}
+                    amount={formatCurrency(order.totalAmount)}
+                    status="pending"
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -93,37 +87,29 @@ export default function OwnerDashboardPage() {
         {/* Recent Orders */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-            <Link
-              href="/owner/orders"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View all <ArrowRight className="h-3 w-3" />
-            </Link>
+            <SectionHeading 
+              title="Recent Orders"
+              action={{
+                label: 'View all',
+                onClick: () => window.location.href = '/owner/orders'
+              }}
+            />
           </CardHeader>
 
           {!recent.length ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No orders yet</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 p-4">
               {recent.map((order: Order) => (
-                <Link
-                  key={order.id}
-                  href={`/owner/orders/${order.id}`}
-                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{order.orderNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(order as unknown as { customer?: { businessName?: string; name?: string } }).customer?.businessName ||
-                       (order as unknown as { customer?: { name?: string } }).customer?.name}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <StatusBadge status={order.status} />
-                    <p className="text-xs text-muted-foreground">{formatCurrency(order.totalAmount)}</p>
-                  </div>
-                </Link>
+                <div key={order.id} onClick={() => window.location.href = `/owner/orders/${order.id}`}>
+                  <ListItem
+                    primary={order.orderNumber}
+                    secondary={(order as unknown as { customer?: { businessName?: string; name?: string } }).customer?.businessName ||
+                     (order as unknown as { customer?: { name?: string } }).customer?.name}
+                    amount={formatCurrency(order.totalAmount)}
+                    status={order.status.toLowerCase() as any}
+                  />
+                </div>
               ))}
             </div>
           )}

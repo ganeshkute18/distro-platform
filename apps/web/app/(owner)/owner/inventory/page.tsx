@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { useInventory } from '../../../../hooks/use-api';
 import { api } from '../../../../lib/api-client';
-import { PageHeader, PageLoader, EmptyState, Pagination } from '../../../../components/shared';
+import { PageHeader, EmptyState, Pagination } from '../../../../components/shared';
+import { SkeletonTable } from '../../../../components/shared/SkeletonLoader';
+import { NoInventory } from '../../../../components/shared/EmptyState';
 import OwnerShell from '../../../../components/layout/OwnerShell';
 import { AlertTriangle, Package } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
@@ -37,7 +39,7 @@ export default function OwnerInventoryPage() {
           className={cn('flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium', lowStockOnly ? 'bg-destructive text-destructive-foreground' : 'hover:bg-muted')}>
           <AlertTriangle className="h-4 w-4" />{lowStockOnly ? 'Show All' : 'Low Stock Only'}
         </button>} />
-      {isLoading ? <PageLoader /> : !inventory.length ? <EmptyState title="No inventory" /> : (
+      {isLoading ? <SkeletonTable rows={15} /> : !inventory.length ? <NoInventory /> : (
         <>
           <div className="overflow-hidden rounded-xl border">
             <table className="w-full text-sm">

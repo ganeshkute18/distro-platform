@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useOrders } from '../../../hooks/use-api';
 import { PageLoader, EmptyState, StatusBadge, Pagination } from '../../../components/shared';
+import { SkeletonTable } from '../../../components/shared/SkeletonLoader';
+import { NoOrders } from '../../../components/shared/EmptyState';
 import { formatCurrency, formatDate, type Order } from '../../../types';
 import CustomerShell from '../../../components/layout/CustomerShell';
 import { ChevronRight, Package } from 'lucide-react';
@@ -20,17 +22,9 @@ export default function CustomerOrdersPage() {
       </div>
 
       {isLoading ? (
-        <PageLoader />
+        <SkeletonTable rows={10} />
       ) : !data?.data?.length ? (
-        <EmptyState
-          title="No orders yet"
-          description="Your placed orders will appear here."
-          action={
-            <Link href="/catalog" className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">
-              Browse Catalog
-            </Link>
-          }
-        />
+        <NoOrders />
       ) : (
         <>
           <div className="space-y-3">

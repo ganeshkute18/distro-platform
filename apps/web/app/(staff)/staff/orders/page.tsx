@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useOrders, useUpdateOrderStatus } from '../../../../hooks/use-api';
 import { PageLoader, EmptyState, StatusBadge, Pagination } from '../../../../components/shared';
+import { SkeletonTable } from '../../../../components/shared/SkeletonLoader';
+import { NoOrders } from '../../../../components/shared/EmptyState';
 import { formatCurrency, formatDate, type Order, type OrderStatus } from '../../../../types';
 import StaffShell from '../../../../components/layout/StaffShell';
 import { ChevronRight, Truck, PlayCircle, CheckCheck } from 'lucide-react';
@@ -52,9 +54,9 @@ export default function StaffOrdersPage() {
       </div>
 
       {isLoading ? (
-        <PageLoader />
+        <SkeletonTable rows={10} />
       ) : !data?.data?.length ? (
-        <EmptyState title="No orders" description="No orders in this status." />
+        <NoOrders />
       ) : (
         <>
           <div className="space-y-3">

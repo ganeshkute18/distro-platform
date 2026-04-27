@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { Plus, Search, Package, Edit2, ToggleLeft, Trash2 } from 'lucide-react';
 import { useProducts } from '../../../../hooks/use-api';
 import { api } from '../../../../lib/api-client';
-import { PageHeader, PageLoader, EmptyState, Pagination, StatusBadge } from '../../../../components/shared';
+import { PageHeader, EmptyState, Pagination, StatusBadge } from '../../../../components/shared';
+import { SkeletonTable } from '../../../../components/shared/SkeletonLoader';
+import { NoProducts } from '../../../../components/shared/EmptyState';
 import { formatCurrency, type Product } from '../../../../types';
 import OwnerShell from '../../../../components/layout/OwnerShell';
 import toast from 'react-hot-toast';
@@ -60,9 +62,8 @@ export default function OwnerProductsPage() {
         />
       </div>
 
-      {isLoading ? <PageLoader /> : !data?.data?.length ? (
-        <EmptyState title="No products yet" description="Add your first product to get started."
-          action={<Link href="/owner/products/new" className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90">Add Product</Link>} />
+      {isLoading ? <SkeletonTable rows={10} /> : !data?.data?.length ? (
+        <NoProducts />
       ) : (
         <>
           <div className="overflow-hidden rounded-xl border">

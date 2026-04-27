@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Search, Filter, ShoppingCart, Package } from 'lucide-react';
 import { useProducts, useCategories, useAgencies } from '../../../hooks/use-api';
 import { PageLoader, EmptyState, Pagination } from '../../../components/shared';
+import { SkeletonGrid } from '../../../components/shared/SkeletonLoader';
+import { NoProducts, NoSearchResults } from '../../../components/shared/EmptyState';
 import { formatCurrency, type Product } from '../../../types';
 import { useCartStore } from '../../../store/cart.store';
 import CustomerShell from '../../../components/layout/CustomerShell';
@@ -107,12 +109,9 @@ export default function CatalogPage() {
       )}
 
       {isLoading ? (
-        <PageLoader />
+        <SkeletonGrid count={24} />
       ) : !data?.data?.length ? (
-        <EmptyState
-          title="No products found"
-          description="Try adjusting your search or filters."
-        />
+        search || categoryId || agencyId ? <NoSearchResults /> : <NoProducts />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
