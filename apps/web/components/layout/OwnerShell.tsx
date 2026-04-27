@@ -72,13 +72,26 @@ export default function OwnerShell({ children }: { children: React.ReactNode }) 
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between border-b px-4">
+      <div className="flex h-16 items-center justify-between border-b px-3">
         {!collapsed && (
-          <span className="text-lg font-bold text-primary">{appSettings?.companyName || 'Nath Sales'}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {appSettings?.companyLogoUrl ? (
+              <img
+                src={appSettings.companyLogoUrl}
+                alt="Company logo"
+                className="h-10 w-10 object-contain flex-shrink-0"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground flex-shrink-0">
+                {appSettings?.companyName?.charAt(0)?.toUpperCase() || 'N'}
+              </div>
+            )}
+            <span className="text-sm font-bold text-primary truncate">{appSettings?.companyName || 'Nath Sales'}</span>
+          </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="rounded-md p-1 hover:bg-accent ml-auto"
+          className="rounded-md p-1 hover:bg-accent ml-auto flex-shrink-0"
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>

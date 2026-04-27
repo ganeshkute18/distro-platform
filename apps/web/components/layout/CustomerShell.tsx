@@ -36,8 +36,21 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
       {/* Top nav */}
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link href="/catalog" className="text-xl font-bold text-primary">
-            {appSettings?.companyName || 'Nath Sales'}
+          <Link href="/catalog" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            {appSettings?.companyLogoUrl ? (
+              <img
+                src={appSettings.companyLogoUrl}
+                alt="Company logo"
+                className="h-9 w-9 object-contain flex-shrink-0"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground flex-shrink-0">
+                {appSettings?.companyName?.charAt(0)?.toUpperCase() || 'N'}
+              </div>
+            )}
+            <span className="text-lg font-bold text-primary hidden sm:inline">
+              {appSettings?.companyName || 'Nath Sales'}
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">

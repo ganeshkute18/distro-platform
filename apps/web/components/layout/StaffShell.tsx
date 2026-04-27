@@ -34,9 +34,22 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside className="hidden md:flex w-56 flex-col border-r bg-card">
-        <div className="flex h-16 items-center border-b px-6">
-          <span className="text-lg font-bold text-primary">{appSettings?.companyName || 'Nath Sales'}</span>
-          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs font-medium">Staff</span>
+        <div className="flex h-16 items-center border-b px-4 gap-2">
+          {appSettings?.companyLogoUrl ? (
+            <img
+              src={appSettings.companyLogoUrl}
+              alt="Company logo"
+              className="h-9 w-9 object-contain flex-shrink-0"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground flex-shrink-0">
+              {appSettings?.companyName?.charAt(0)?.toUpperCase() || 'N'}
+            </div>
+          )}
+          <div className="min-w-0">
+            <span className="text-sm font-bold text-primary truncate block">{appSettings?.companyName || 'Nath Sales'}</span>
+            <span className="rounded bg-secondary px-1 py-0 text-xs font-medium">Staff</span>
+          </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV_ITEMS.map((item) => (
