@@ -51,5 +51,5 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 # Railway injects $PORT — use it, fall back to 4000
 EXPOSE 4000
 
-# Run migrations then start the server
-CMD ["sh", "-c", "cd apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && node dist/main.js"]
+# Run migrations then start the server (use root-relative paths)
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=./apps/api/prisma/schema.prisma && node ./apps/api/dist/main.js"]
