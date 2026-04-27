@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
-import { Product } from '@shared-types';
+import { Product } from '@distro/shared-types';
 
 interface EnhancedProductCardProps {
   product: Product;
