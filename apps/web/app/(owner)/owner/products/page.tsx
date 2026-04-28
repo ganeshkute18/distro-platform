@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, Package, Edit2, ToggleLeft, Trash2 } from 'lucide-react';
+import { Plus, Search, Package, Edit2, ToggleLeft, Trash2, Boxes } from 'lucide-react';
 import { useProducts } from '../../../../hooks/use-api';
 import { api } from '../../../../lib/api-client';
 import { PageHeader, Pagination } from '../../../../components/shared';
@@ -16,6 +16,9 @@ import { useQueryClient } from '@tanstack/react-query';
 export default function OwnerProductsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [adjustingProduct, setAdjustingProduct] = useState<string | null>(null);
+  const [delta, setDelta] = useState('');
+  const [reason, setReason] = useState('MANUAL_RESTOCK');
   const qc = useQueryClient();
   const { data, isLoading } = useProducts({ search: search || undefined, page, limit: 20 });
 
@@ -37,6 +40,20 @@ export default function OwnerProductsPage() {
       qc.invalidateQueries({ queryKey: ['products'] });
     } catch {
       toast.error('Failed to remove product');
+    }
+  }
+
+  async function updateStock(productId: string) {
+    if (!delta) return;
+    try {
+      await api.post(`/inventory/${productId}/adjust`, { delta: Number(delta), reason });
+      toast.success('Stock updated');
+      setAdjustingProduct(null);
+      setDelta('');
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+    } catch {
+      toast.error('Failed to update stock');
     }
   }
 

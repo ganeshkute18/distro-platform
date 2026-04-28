@@ -109,7 +109,7 @@ export default function OwnerUsersPage() {
         <div className="flex gap-1 rounded-lg border bg-muted p-1">
           {(['', 'STAFF', 'CUSTOMER'] as const).map((r) => (
             <button key={r} onClick={() => { setRole(r); setPage(1); }}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${role === r ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+              className={`min-h-11 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${role === r ? 'bg-card shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
               {r === '' ? 'All' : r.charAt(0) + r.slice(1).toLowerCase()}
             </button>
           ))}
