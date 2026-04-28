@@ -19,6 +19,11 @@ export class UsersController {
     return this.usersService.findOne(user.id);
   }
 
+  @Get('support-contacts')
+  getSupportContacts() {
+    return this.usersService.getSupportContacts();
+  }
+
   @Patch('me')
   updateMe(@CurrentUser() user: User, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);

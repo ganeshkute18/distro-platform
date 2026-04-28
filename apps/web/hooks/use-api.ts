@@ -154,6 +154,12 @@ export const useUsers = (params?: Record<string, unknown>) =>
     queryFn: () => api.get<PaginatedResponse<User>>('/users', { params }),
   });
 
+export const useSupportContacts = () =>
+  useQuery({
+    queryKey: ['support-contacts'],
+    queryFn: () => api.get<{ owner: Pick<User, 'id' | 'name' | 'email' | 'phone'> | null; staff: Pick<User, 'id' | 'name' | 'email' | 'phone'>[] }>('/users/support-contacts'),
+  });
+
 // ─── Inventory ───────────────────────────────────────────
 export const useInventory = (params?: Record<string, unknown>) =>
   useQuery({

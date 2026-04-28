@@ -159,7 +159,7 @@ export interface CartItem {
 
 // Formatting helpers
 export const formatCurrency = (paise: number): string =>
-  `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export const formatDate = (date?: string | null): string => {
   if (!date) return '—';
