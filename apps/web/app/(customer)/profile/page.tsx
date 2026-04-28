@@ -1,19 +1,25 @@
 'use client';
 import React from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { useMe } from '../../../hooks/use-api';
+import { useMe, useSupportContacts } from '../../../hooks/use-api';
 import { api } from '../../../lib/api-client';
 import { PageHeader, Card, PageLoader } from '../../../components/shared';
 import CustomerShell from '../../../components/layout/CustomerShell';
 import toast from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LogOut, Mail, Phone, Settings } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { compressImageToBase64 } from '../../../lib/image-utils';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '../../../store/auth.store';
 
 export default function ProfilePage() {
   const { data: user, isLoading } = useMe();
+  const { data: contacts } = useSupportContacts();
   const qc = useQueryClient();
   const [imageProcessing, setImageProcessing] = React.useState(false);
+  const router = useRouter();
+  const { clear } = useAuthStore();
   const { register, handleSubmit, setValue, formState: { isSubmitting } } = useForm();
 
   async function onSubmit(data: Record<string, unknown>) {
@@ -36,38 +42,80 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleLogout() {
+    try { await api.post('/auth/logout'); } catch { /* ignore */ }
+    clear();
+    router.push('/login');
+  }
+
   if (isLoading) return <CustomerShell><PageLoader /></CustomerShell>;
 
   return (
     <CustomerShell>
-      <PageHeader title="My Profile" />
-      <div className="max-w-lg">
+      <PageHeader title="My Profile" description="Update profile, settings, and support contacts." />
+      <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
         <Card>
           <div className="mb-6 flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary text-2xl font-bold">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-2xl font-bold text-primary">
               {(user as any)?.profileImageUrl ? (
                 <img src={(user as any).profileImageUrl} alt={user?.name} className="h-full w-full object-cover" />
               ) : (
                 user?.name?.charAt(0)?.toUpperCase()
               )}
             </div>
-            <div><p className="font-bold text-lg">{user?.name}</p><p className="text-sm text-muted-foreground">{user?.email}</p></div>
+            <div><p className="text-lg font-bold">{user?.name}</p><p className="text-sm text-muted-foreground">{user?.email}</p></div>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {[['name', 'Full Name', user?.name], ['businessName', 'Business Name', user?.businessName], ['phone', 'Phone', user?.phone], ['address', 'Address', user?.address]].map(([f, l, d]) => (
-              <div key={String(f)}><label className="mb-1.5 block text-sm font-medium">{l}</label><input {...register(String(f))} defaultValue={String(d ?? '')} className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+              <div key={String(f)}><label className="mb-1.5 block text-sm font-medium">{l}</label><input {...register(String(f))} defaultValue={String(d ?? '')} className="h-11 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
             ))}
             <div>
               <label className="mb-1.5 block text-sm font-medium">Profile Photo</label>
-              <input type="file" accept="image/*" onChange={(e) => onAvatarSelect(e.target.files?.[0])} className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <input type="file" accept="image/*" onChange={(e) => onAvatarSelect(e.target.files?.[0])} className="h-11 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
               <input type="hidden" {...register('profileImageUrl')} />
             </div>
-            <div><label className="mb-1.5 block text-sm font-medium">New Password</label><input {...register('password')} type="password" placeholder="Leave blank to keep current" className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
-            <button type="submit" disabled={isSubmitting} className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
+            <div><label className="mb-1.5 block text-sm font-medium">New Password</label><input {...register('password')} type="password" placeholder="Leave blank to keep current" className="h-11 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" /></div>
+            <button type="submit" disabled={isSubmitting} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60">
               {(isSubmitting || imageProcessing) && <Loader2 className="h-4 w-4 animate-spin" />} {imageProcessing ? 'Processing image…' : 'Save Changes'}
             </button>
           </form>
         </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold">Settings</h3>
+            <div className="space-y-2">
+              <Link href="/profile" className="flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm hover:bg-muted"><Settings className="h-4 w-4" /> Profile Settings</Link>
+              <button onClick={handleLogout} className="flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left text-sm text-destructive hover:bg-muted">
+                <LogOut className="h-4 w-4" /> Logout
+              </button>
+            </div>
+          </Card>
+
+          <Card>
+            <h3 className="mb-3 text-sm font-semibold">Support / Contact Team</h3>
+            {contacts?.owner ? (
+              <div className="mb-4 rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Owner</p>
+                <p className="font-medium">{contacts.owner.name}</p>
+                <a href={`tel:${contacts.owner.phone || ''}`} className="mt-1 flex items-center gap-2 text-sm text-muted-foreground"><Phone className="h-3.5 w-3.5" /> {contacts.owner.phone || 'N/A'}</a>
+                <a href={`mailto:${contacts.owner.email}`} className="flex items-center gap-2 text-sm text-muted-foreground"><Mail className="h-3.5 w-3.5" /> {contacts.owner.email}</a>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Staff Members</p>
+              {contacts?.staff?.length ? contacts.staff.map((member) => (
+                <div key={member.id} className="rounded-lg border p-3">
+                  <p className="text-sm font-medium">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">Role: Staff</p>
+                  <a href={`tel:${member.phone || ''}`} className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><Phone className="h-3.5 w-3.5" /> {member.phone || 'N/A'}</a>
+                  <a href={`mailto:${member.email}`} className="flex items-center gap-2 text-xs text-muted-foreground"><Mail className="h-3.5 w-3.5" /> {member.email}</a>
+                </div>
+              )) : <p className="text-xs text-muted-foreground">No staff contact available.</p>}
+            </div>
+          </Card>
+        </div>
       </div>
     </CustomerShell>
   );
