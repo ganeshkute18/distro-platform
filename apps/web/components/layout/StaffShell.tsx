@@ -77,35 +77,14 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
               <span className="font-semibold">Staff Menu</span>
               <button onClick={() => setMobileOpen(false)} className="rounded-md p-1 hover:bg-accent"><X className="h-5 w-5" /></button>
             </div>
-            <div className="flex h-[calc(100%-3.5rem)] flex-col">
-              <nav className="flex-1 space-y-1 p-3">
-                {NAV_ITEMS.map((item) => (
-                  <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', pathname.startsWith(item.href) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}>
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-              <div className="border-t p-3">
-                <div className="mb-2 flex items-center gap-3 px-2 py-1">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{user?.name?.charAt(0)?.toUpperCase()}</div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{user?.name}</p>
-                    <p className="text-xs text-muted-foreground">Staff</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setMobileOpen(false);
-                    handleLogout();
-                  }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Logout
-                </button>
-              </div>
-            </div>
+            <nav className="space-y-1 p-3">
+              {NAV_ITEMS.map((item) => (
+                <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={cn('flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium', pathname.startsWith(item.href) ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent')}>
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
       )}
