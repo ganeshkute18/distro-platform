@@ -81,6 +81,22 @@ export class UsersService {
     return user;
   }
 
+  async getSupportContacts() {
+    const owner = await this.prisma.user.findFirst({
+      where: { role: Role.OWNER, isActive: true },
+      select: { id: true, name: true, email: true, phone: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const staff = await this.prisma.user.findMany({
+      where: { role: Role.STAFF, isActive: true },
+      select: { id: true, name: true, email: true, phone: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return { owner, staff };
+  }
+
   async update(id: string, dto: UpdateUserDto, updatedById: string) {
     const user = await this.findOne(id);
     const updated = await this.prisma.user.update({

@@ -2,11 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingCart, PackageCheck, LogOut, Menu, X, User } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ShoppingCart, PackageCheck, Menu, X, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
-import { api } from '../../lib/api-client';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useAppSettings } from '../../hooks/use-api';
 import { NotificationBell } from '../shared/NotificationBell';
@@ -20,15 +19,8 @@ const NAV_ITEMS = [
 export default function StaffShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, clear } = useAuthStore();
+  const { user } = useAuthStore();
   const { data: appSettings } = useAppSettings();
-
-  async function handleLogout() {
-    try { await api.post('/auth/logout'); } catch { /* ignore */ }
-    clear();
-    router.push('/login');
-  }
 
   return (
     <div className="safe-x flex h-screen overflow-hidden bg-background">
@@ -62,10 +54,6 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
               <p className="text-xs text-muted-foreground">Staff</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-destructive">
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
         </div>
       </aside>
 
@@ -94,7 +82,19 @@ export default function StaffShell({ children }: { children: React.ReactNode }) 
           <button className="mr-4 rounded-md p-1 hover:bg-accent md:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <span className="font-semibold">Staff Portal</span>
+          <div className="flex min-w-0 items-center gap-2">
+            {appSettings?.companyLogoUrl ? (
+              <img src={appSettings.companyLogoUrl} alt="Company logo" className="h-8 w-8 object-contain" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+                {appSettings?.companyName?.charAt(0)?.toUpperCase() || 'N'}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-primary">{appSettings?.companyName || 'Nath Sales'}</p>
+              <p className="text-[11px] text-muted-foreground">Staff Portal</p>
+            </div>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
             <NotificationBell />

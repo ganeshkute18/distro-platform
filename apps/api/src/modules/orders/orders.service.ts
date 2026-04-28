@@ -32,6 +32,22 @@ export class OrdersService {
     private eventEmitter: EventEmitter2,
   ) {}
 
+  private async generateUniqueOrderNumber() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+
+    for (let i = 0; i < 8; i += 1) {
+      const suffix = Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0');
+      const orderNumber = `ORD-${y}${m}${d}-${suffix}`;
+      const exists = await this.prisma.order.findUnique({ where: { orderNumber }, select: { id: true } });
+      if (!exists) return orderNumber;
+    }
+
+    throw new BadRequestException('Unable to generate unique order number. Please try again.');
+  }
+
   async create(dto: CreateOrderDto, customerId: string) {
     // Validate products and compute totals
     const productIds = dto.items.map((i) => i.productId);
@@ -63,9 +79,8 @@ export class OrdersService {
       }
     }
 
-    // Generate order number
-    const count = await this.prisma.order.count();
-    const orderNumber = `ORD-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+    // Generate order number (collision-safe)
+    const orderNumber = await this.generateUniqueOrderNumber();
 
     // Compute totals
     let totalAmount = 0;

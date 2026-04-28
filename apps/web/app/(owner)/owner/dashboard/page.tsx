@@ -1,13 +1,12 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { ShoppingCart, Clock, TrendingUp, Package, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
+import { ShoppingCart, Clock, TrendingUp, Package } from 'lucide-react';
 import { useDashboard, useOrders } from '../../../../hooks/use-api';
 import { StatCard, PageHeader, Card, CardHeader } from '../../../../components/shared';
-import { SkeletonDashboard, SkeletonTable } from '../../../../components/shared/SkeletonLoader';
+import { SkeletonDashboard } from '../../../../components/shared/SkeletonLoader';
 import { SectionHeading, ListItem } from '../../../../components/shared/DashboardComponents';
-import { formatCurrency, formatDate, type Order } from '../../../../types';
+import { formatCurrency, type Order } from '../../../../types';
 import OwnerShell from '../../../../components/layout/OwnerShell';
 
 export default function OwnerDashboardPage() {
@@ -27,8 +26,8 @@ export default function OwnerDashboardPage() {
       />
 
       {/* KPI Stats */}
-      <div className="scroll-fade-x mb-6">
-        <div className="touch-scroll grid min-w-max grid-flow-col auto-cols-[minmax(165px,1fr)] gap-3 overflow-x-auto sm:min-w-0 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+      <div className="mb-6">
+        <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard
           label="Pending Approvals"
           value={stats?.pendingApproval ?? 0}
