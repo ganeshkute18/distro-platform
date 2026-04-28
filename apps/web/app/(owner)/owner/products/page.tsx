@@ -87,65 +87,7 @@ export default function OwnerProductsPage() {
         <NoProducts />
       ) : (
         <>
-          <div className="grid gap-3 md:hidden">
-            {data.data.map((product: Product) => {
-              const available = (product.inventory?.totalStock ?? 0) - (product.inventory?.reservedStock ?? 0);
-              return (
-                <div key={product.id} className="rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="mb-3 flex items-start gap-3">
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
-                      {product.imageUrls?.[0]
-                        ? <img src={product.imageUrls[0]} alt={product.name} className="h-full w-full object-cover" />
-                        : <div className="flex h-full items-center justify-center"><Package className="h-4 w-4 text-muted-foreground/40" /></div>}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
-                    </div>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                      {product.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg bg-muted/30 p-2"><p className="text-muted-foreground">Price</p><p className="font-semibold">{formatCurrency(product.pricePerUnit)}</p></div>
-                    <div className="rounded-lg bg-muted/30 p-2"><p className="text-muted-foreground">Stock</p><p className={available <= (product.inventory?.lowStockThreshold ?? 10) ? 'font-semibold text-destructive' : 'font-semibold'}>{available}</p></div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <Link href={`/owner/products/${product.id}/edit`} className="flex min-h-11 items-center justify-center rounded-lg border text-xs font-medium hover:bg-muted">Edit</Link>
-                    <button onClick={() => deleteProduct(product)} className="min-h-11 rounded-lg border text-xs font-medium text-destructive hover:bg-muted">Delete</button>
-                    <button onClick={() => setAdjustingProduct(adjustingProduct === product.id ? null : product.id)} className="min-h-11 rounded-lg border text-xs font-medium hover:bg-muted">Update Stock</button>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button onClick={() => toggleActive(product)} className="min-h-11 rounded-lg border text-xs font-medium hover:bg-muted">Toggle Status</button>
-                    <Link href="/owner/inventory" className="flex min-h-11 items-center justify-center gap-1 rounded-lg border text-xs font-medium hover:bg-muted"><Boxes className="h-3.5 w-3.5" /> Inventory</Link>
-                  </div>
-
-                  {adjustingProduct === product.id && (
-                    <div className="mt-3 space-y-2 rounded-lg border p-3">
-                      <div className="flex gap-2">
-                        <input type="number" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="+10 or -3" className="h-11 w-full rounded-lg border px-3 text-sm" />
-                        <select value={reason} onChange={(e) => setReason(e.target.value)} className="h-11 rounded-lg border px-2 text-sm">
-                          <option value="MANUAL_RESTOCK">Restock</option>
-                          <option value="DAMAGE">Damage</option>
-                          <option value="RETURN">Return</option>
-                          <option value="CORRECTION">Correction</option>
-                        </select>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => updateStock(product.id)} className="min-h-11 flex-1 rounded-lg bg-primary text-xs font-semibold text-primary-foreground">Save</button>
-                        <button onClick={() => setAdjustingProduct(null)} className="min-h-11 flex-1 rounded-lg border text-xs font-medium">Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="hidden overflow-hidden rounded-xl border md:block">
+          <div className="overflow-hidden rounded-xl border">
             <div className="touch-scroll overflow-x-auto">
               <table className="min-w-[860px] w-full text-sm">
                 <thead className="border-b bg-muted/50">
@@ -178,13 +120,37 @@ export default function OwnerProductsPage() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{product.agency?.name}</td>
                         <td className="px-4 py-3 text-right font-medium">{formatCurrency(product.pricePerUnit)}</td>
-                        <td className="px-4 py-3 text-right"><span className={available <= (product.inventory?.lowStockThreshold ?? 10) ? 'font-semibold text-destructive' : ''}>{available}</span></td>
-                        <td className="px-4 py-3 text-center"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{product.isActive ? 'Active' : 'Inactive'}</span></td>
+                        <td className="px-4 py-3 text-right">
+                          <span className={available <= (product.inventory?.lowStockThreshold ?? 10) ? 'font-semibold text-destructive' : ''}>
+                            {available}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {product.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
-                            <Link href={`/owner/products/${product.id}/edit`} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Edit2 className="h-4 w-4" /></Link>
-                            <button onClick={() => toggleActive(product)} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><ToggleLeft className="h-4 w-4" /></button>
-                            <button onClick={() => deleteProduct(product)} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive" title="Remove product"><Trash2 className="h-4 w-4" /></button>
+                            <Link
+                              href={`/owner/products/${product.id}/edit`}
+                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Link>
+                            <button
+                              onClick={() => toggleActive(product)}
+                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                            >
+                              <ToggleLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteProduct(product)}
+                              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                              title="Remove product"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -194,7 +160,7 @@ export default function OwnerProductsPage() {
               </table>
             </div>
           </div>
-
+          <p className="mt-2 text-xs text-muted-foreground sm:hidden">Swipe left/right to view all product data and actions.</p>
           <Pagination page={page} totalPages={data.meta.totalPages} onPageChange={setPage} />
         </>
       )}

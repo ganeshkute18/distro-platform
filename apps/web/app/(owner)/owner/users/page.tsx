@@ -127,50 +127,7 @@ export default function OwnerUsersPage() {
         <EmptyState title="No users found" />
       ) : (
         <>
-          <div className="grid gap-3 md:hidden">
-            {filtered.map((user) => (
-              <div key={user.id} className="rounded-xl border bg-card p-4 shadow-sm">
-                <div className="mb-3 flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold">{user.name}</p>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${ROLE_COLORS[user.role]}`}>{ROLE_ICONS[user.role]} {user.role}</span>
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                    <p className="truncate text-xs text-muted-foreground">{user.phone || 'No phone'}</p>
-                  </div>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    disabled={user.role !== 'CUSTOMER'}
-                    onClick={() => user.role === 'CUSTOMER' && setSelectedCustomer(user)}
-                    className="min-h-11 rounded-lg border px-3 text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    View Orders
-                  </button>
-                  <Link href={`/owner/users/${user.id}/edit`} className="flex min-h-11 items-center justify-center rounded-lg border px-3 text-xs font-medium hover:bg-muted">Edit</Link>
-                  <button
-                    type="button"
-                    onClick={() => (user.isActive ? deactivateUser(user) : reactivateUser(user))}
-                    className={cn('min-h-11 rounded-lg border px-3 text-xs font-medium hover:bg-muted', user.isActive && 'text-destructive')}
-                  >
-                    {user.isActive ? 'Disable' : 'Enable'}
-                  </button>
-                  <a href={user.phone ? `tel:${user.phone}` : `mailto:${user.email}`} className="flex min-h-11 items-center justify-center rounded-lg border px-3 text-xs font-medium hover:bg-muted">Contact</a>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="hidden overflow-hidden rounded-xl border md:block">
+          <div className="overflow-hidden rounded-xl border">
             <div className="touch-scroll overflow-x-auto">
               <table className="min-w-[920px] w-full text-sm">
                 <thead className="border-b bg-muted/50">
@@ -223,18 +180,17 @@ export default function OwnerUsersPage() {
                               <Link href={`/owner/users/${user.id}/edit`} className="block rounded-md px-3 py-2 text-left text-xs hover:bg-muted">Edit</Link>
                               <button
                                 type="button"
-                                disabled={user.role !== 'CUSTOMER'}
                                 onClick={() => {
                                   setActionMenu(null);
                                   if (user.role === 'CUSTOMER') setSelectedCustomer(user);
                                 }}
-                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted disabled:opacity-50"
+                                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted"
                               >
                                 <ShoppingBag className="h-3.5 w-3.5" />
                                 View Orders
                               </button>
-                              <a href={user.phone ? `tel:${user.phone}` : `mailto:${user.email}`} className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted">
-                                <Phone className="h-3.5 w-3.5" />
+                              <a href={`mailto:${user.email}`} className="flex items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted">
+                                <Mail className="h-3.5 w-3.5" />
                                 Contact
                               </a>
                               {user.isActive ? (
@@ -256,7 +212,7 @@ export default function OwnerUsersPage() {
               </table>
             </div>
           </div>
-
+          <p className="mt-2 text-xs text-muted-foreground sm:hidden">Swipe left/right to view all user columns and actions.</p>
           <Pagination page={page} totalPages={data?.meta.totalPages ?? 1} onPageChange={setPage} />
         </>
       )}
@@ -303,8 +259,13 @@ export default function OwnerUsersPage() {
                           <p className="text-sm font-semibold">{order.orderNumber}</p>
                           <StatusBadge status={order.status} />
                         </div>
-                        <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)} • {formatCurrency(order.totalAmount)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Items: {((order as unknown as { _count?: { items?: number } })._count?.items) ?? order.items?.length ?? 0}</p>
+                        <p className="mb-2 text-xs text-muted-foreground">{formatDate(order.createdAt)} • {formatCurrency(order.totalAmount)}</p>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          {order.items.slice(0, 4).map((item) => (
+                            <p key={item.id}>{item.product.name} × {item.quantity}</p>
+                          ))}
+                          {order.items.length > 4 ? <p>+{order.items.length - 4} more items</p> : null}
+                        </div>
                       </div>
                     ))}
                   </div>
