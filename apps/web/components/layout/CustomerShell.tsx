@@ -2,12 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingBag, ShoppingCart, Package, User, LogOut } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ShoppingBag, ShoppingCart, Package, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuthStore } from '../../store/auth.store';
 import { useCartStore } from '../../store/cart.store';
-import { api } from '../../lib/api-client';
 import { ThemeToggle } from '../shared/ThemeToggle';
 import { useAppSettings } from '../../hooks/use-api';
 import { NotificationBell } from '../shared/NotificationBell';
@@ -20,16 +19,9 @@ const NAV_ITEMS = [
 
 export default function CustomerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, clear } = useAuthStore();
+  const { user } = useAuthStore();
   const { items } = useCartStore();
   const { data: appSettings } = useAppSettings();
-
-  async function handleLogout() {
-    try { await api.post('/auth/logout'); } catch { /* ignore */ }
-    clear();
-    router.push('/login');
-  }
 
   return (
     <div className="safe-x min-h-screen bg-background">
@@ -43,7 +35,7 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
                 {appSettings?.companyName?.charAt(0)?.toUpperCase() || 'N'}
               </div>
             )}
-            <span className="hidden text-base font-bold text-primary sm:inline lg:text-lg">{appSettings?.companyName || 'Nath Sales'}</span>
+            <span className="max-w-[130px] truncate text-sm font-bold text-primary sm:max-w-[220px] sm:text-base lg:text-lg">{appSettings?.companyName || 'Nath Sales'}</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -69,9 +61,6 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
             <div className="hidden text-right md:block">
               <p className="max-w-[180px] truncate text-xs font-medium">{user?.businessName || user?.name}</p>
             </div>
-            <button onClick={handleLogout} className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive" title="Logout">
-              <LogOut className="h-4 w-4" />
-            </button>
           </div>
         </div>
       </header>

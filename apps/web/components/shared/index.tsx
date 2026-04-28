@@ -141,12 +141,12 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <Card className={cn('flex min-w-[160px] flex-col gap-2 p-4 sm:min-w-0', className)}>
+    <Card className={cn('flex h-full min-w-[160px] flex-col gap-2 overflow-hidden p-4 sm:min-w-0', className)}>
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
         {icon && <div className="rounded-lg bg-primary/10 p-1.5 text-primary sm:p-2">{icon}</div>}
       </div>
-      <p className="font-mono text-xl font-bold tracking-tight sm:text-3xl">{value}</p>
+      <p className="font-mono text-[clamp(1rem,5vw,1.75rem)] font-bold tracking-tight leading-tight break-words">{value}</p>
       {trend && (
         <p className={cn('text-xs', trend.value >= 0 ? 'text-green-600' : 'text-red-600')}>
           {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
@@ -166,12 +166,12 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-3">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="shrink-0 max-sm:w-full">{action}</div>}
     </div>
   );
 }

@@ -75,7 +75,7 @@ export function SectionHeading({
   action,
 }: SectionHeadingProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-6">
       <div>
         <h2 className="text-xl font-bold text-foreground">{title}</h2>
         {subtitle && (
@@ -85,7 +85,7 @@ export function SectionHeading({
       {action && (
         <button
           onClick={action.onClick}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-4 sm:py-2 sm:text-sm"
         >
           {action.label}
         </button>
