@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ShoppingCart, Clock, TrendingUp, Package, ArrowRight, CheckCircle2, XCircle } from 'lucide-react';
 import { useDashboard, useOrders } from '../../../../hooks/use-api';
-import { StatCard, PageHeader, Card, CardHeader, CardTitle, StatusBadge } from '../../../../components/shared';
+import { StatCard, PageHeader, Card, CardHeader } from '../../../../components/shared';
 import { SkeletonDashboard, SkeletonTable } from '../../../../components/shared/SkeletonLoader';
 import { SectionHeading, ListItem } from '../../../../components/shared/DashboardComponents';
 import { formatCurrency, formatDate, type Order } from '../../../../types';
@@ -27,7 +27,8 @@ export default function OwnerDashboardPage() {
       />
 
       {/* KPI Stats */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="scroll-fade-x mb-6">
+        <div className="touch-scroll grid min-w-max grid-flow-col auto-cols-[minmax(165px,1fr)] gap-3 overflow-x-auto sm:min-w-0 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         <StatCard
           label="Pending Approvals"
           value={stats?.pendingApproval ?? 0}
@@ -49,6 +50,7 @@ export default function OwnerDashboardPage() {
           value={formatCurrency(stats?.totalRevenue ?? 0)}
           icon={<TrendingUp className="h-4 w-4" />}
         />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
