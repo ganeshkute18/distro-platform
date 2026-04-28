@@ -4,52 +4,135 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 210 33% 99%;
+    --foreground: 220 31% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 31% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --popover-foreground: 220 31% 14%;
+    --primary: 223 77% 55%;
+    --primary-foreground: 210 40% 99%;
+    --secondary: 210 24% 95%;
+    --secondary-foreground: 220 31% 20%;
+    --muted: 210 20% 95%;
+    --muted-foreground: 217 15% 43%;
+    --accent: 217 26% 92%;
+    --accent-foreground: 220 31% 14%;
+    --destructive: 0 72% 53%;
+    --destructive-foreground: 210 40% 99%;
+    --border: 215 20% 90%;
+    --input: 215 20% 90%;
+    --ring: 223 77% 55%;
+    --radius: 0.8rem;
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 222 29% 8%;
+    --foreground: 210 25% 96%;
+    --card: 222 24% 11%;
+    --card-foreground: 210 25% 96%;
+    --popover: 222 24% 11%;
+    --popover-foreground: 210 25% 96%;
+    --primary: 222 80% 66%;
+    --primary-foreground: 222 29% 8%;
+    --secondary: 220 18% 18%;
+    --secondary-foreground: 210 25% 96%;
+    --muted: 220 14% 18%;
+    --muted-foreground: 218 13% 69%;
+    --accent: 221 16% 20%;
+    --accent-foreground: 210 25% 96%;
+    --destructive: 0 74% 57%;
+    --destructive-foreground: 210 40% 99%;
+    --border: 220 12% 24%;
+    --input: 220 12% 24%;
+    --ring: 222 80% 66%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    text-wrap: pretty;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  h1 {
+    @apply text-2xl font-bold sm:text-3xl;
+  }
+
+  h2 {
+    @apply text-xl font-semibold sm:text-2xl;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+  }
+
+  .font-mono {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+    background-color: hsl(var(--border));
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground));
   }
 }
 
-@layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+@layer utilities {
+  .safe-top {
+    padding-top: var(--safe-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: var(--safe-bottom);
+  }
+
+  .safe-x {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+
+  .scroll-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+  }
+
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
 }

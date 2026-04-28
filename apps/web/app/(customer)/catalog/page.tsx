@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, Filter, ShoppingCart, Package } from 'lucide-react';
+import { Search, Filter, ShoppingCart, Package, X } from 'lucide-react';
 import { useProducts, useCategories, useAgencies } from '../../../hooks/use-api';
 import { PageLoader, EmptyState, Pagination } from '../../../components/shared';
 import { SkeletonGrid } from '../../../components/shared/SkeletonLoader';
@@ -43,7 +43,7 @@ export default function CatalogPage() {
       </div>
 
       {/* Search + Filter Bar */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-4 flex gap-2 sm:mb-6 sm:gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -56,7 +56,7 @@ export default function CatalogPage() {
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${showFilters ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors sm:px-4 ${showFilters ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
         >
           <Filter className="h-4 w-4" />
           <span className="hidden sm:inline">Filters</span>
@@ -65,40 +65,78 @@ export default function CatalogPage() {
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="mb-6 flex flex-wrap gap-4 rounded-xl border bg-muted/30 p-4">
-          <div className="flex-1 min-w-[180px]">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
-            <select
-              value={categoryId}
-              onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+        <>
+          <div className="mb-6 hidden flex-wrap gap-4 rounded-xl border bg-muted/30 p-4 sm:flex">
+            <div className="min-w-[180px] flex-1">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
+              <select
+                value={categoryId}
+                onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All categories</option>
+                {(Array.isArray(categories) ? categories : []).map((cat: { id: string; name: string }) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[180px] flex-1">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Agency / Brand</label>
+              <select
+                value={agencyId}
+                onChange={(e) => { setAgencyId(e.target.value); setPage(1); }}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">All agencies</option>
+                {((agencies as { data?: { id: string; name: string }[] })?.data ?? []).map((a: { id: string; name: string }) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => { setCategoryId(''); setAgencyId(''); setSearch(''); setPage(1); }}
+              className="self-end rounded-lg px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              <option value="">All categories</option>
-              {(Array.isArray(categories) ? categories : []).map((cat: { id: string; name: string }) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
+              Clear filters
+            </button>
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Agency / Brand</label>
-            <select
-              value={agencyId}
-              onChange={(e) => { setAgencyId(e.target.value); setPage(1); }}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All agencies</option>
-              {((agencies as { data?: { id: string; name: string }[] })?.data ?? []).map((a: { id: string; name: string }) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
+
+          <div className="fixed inset-0 z-50 flex items-end sm:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
+            <div className="safe-bottom relative w-full rounded-t-2xl border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Filters</h3>
+                <button onClick={() => setShowFilters(false)} className="rounded-md p-1 hover:bg-accent">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
+                  <select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setPage(1); }} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">All categories</option>
+                    {(Array.isArray(categories) ? categories : []).map((cat: { id: string; name: string }) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Agency / Brand</label>
+                  <select value={agencyId} onChange={(e) => { setAgencyId(e.target.value); setPage(1); }} className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">All agencies</option>
+                    {((agencies as { data?: { id: string; name: string }[] })?.data ?? []).map((a: { id: string; name: string }) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowFilters(false)} className="flex-1 rounded-lg border px-3 py-2 text-sm">Apply</button>
+                  <button onClick={() => { setCategoryId(''); setAgencyId(''); setSearch(''); setPage(1); }} className="flex-1 rounded-lg px-3 py-2 text-sm text-muted-foreground">Clear</button>
+                </div>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => { setCategoryId(''); setAgencyId(''); setSearch(''); setPage(1); }}
-            className="self-end rounded-lg px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Clear filters
-          </button>
-        </div>
+        </>
       )}
 
       {/* Results count */}
@@ -114,7 +152,7 @@ export default function CatalogPage() {
         search || categoryId || agencyId ? <NoSearchResults /> : <NoProducts />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {data.data.map((product: Product) => {
               const available = (product.inventory?.totalStock ?? 0) - (product.inventory?.reservedStock ?? 0);
               const inStock = available > 0;
