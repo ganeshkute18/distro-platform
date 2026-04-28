@@ -5,7 +5,6 @@ import { Loader2, PackageOpen } from 'lucide-react';
 import { ORDER_STATUS_COLOR, ORDER_STATUS_LABEL, type OrderStatus } from '../../types';
 import { cn } from '../../lib/utils';
 
-// ─── Badge ────────────────────────────────────────────────
 export function Badge({
   children,
   className,
@@ -34,13 +33,13 @@ export function Badge({
   );
 }
 
-// ─── Status Badge ─────────────────────────────────────────
-export function StatusBadge({ status }: { status: OrderStatus }) {
+export function StatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold sm:px-2.5 sm:text-xs',
         ORDER_STATUS_COLOR[status],
+        className,
       )}
     >
       {ORDER_STATUS_LABEL[status]}
@@ -48,7 +47,37 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
-// ─── Loading Spinner ──────────────────────────────────────
+export function ScrollTabs({
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (next: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn('scroll-fade-x', className)}>
+      <div className="touch-scroll flex gap-1 overflow-x-auto rounded-xl border bg-muted p-1">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              'flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-all sm:text-sm',
+              value === option.value ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function LoadingSpinner({ className }: { className?: string }) {
   return <Loader2 className={cn('h-6 w-6 animate-spin text-muted-foreground', className)} />;
 }
@@ -61,7 +90,6 @@ export function PageLoader() {
   );
 }
 
-// ─── Empty State ──────────────────────────────────────────
 export function EmptyState({
   title,
   description,
@@ -81,7 +109,6 @@ export function EmptyState({
   );
 }
 
-// ─── Card ─────────────────────────────────────────────────
 export function Card({
   children,
   className,
@@ -89,11 +116,7 @@ export function Card({
   children: React.ReactNode;
   className?: string;
 }) {
-  return (
-    <div className={cn('rounded-xl border bg-card p-6 shadow-sm', className)}>
-      {children}
-    </div>
-  );
+  return <div className={cn('rounded-xl border bg-card p-4 shadow-sm sm:p-6', className)}>{children}</div>;
 }
 
 export function CardHeader({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -104,7 +127,6 @@ export function CardTitle({ children, className }: { children: React.ReactNode; 
   return <h3 className={cn('text-lg font-semibold', className)}>{children}</h3>;
 }
 
-// ─── Stat Card ────────────────────────────────────────────
 export function StatCard({
   label,
   value,
@@ -119,12 +141,12 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <Card className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
-        {icon && <div className="rounded-lg bg-primary/10 p-2 text-primary">{icon}</div>}
+    <Card className={cn('flex min-w-[160px] flex-col gap-2 p-4 sm:min-w-0', className)}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</p>
+        {icon && <div className="rounded-lg bg-primary/10 p-1.5 text-primary sm:p-2">{icon}</div>}
       </div>
-      <p className="text-3xl font-bold tracking-tight">{value}</p>
+      <p className="font-mono text-xl font-bold tracking-tight sm:text-3xl">{value}</p>
       {trend && (
         <p className={cn('text-xs', trend.value >= 0 ? 'text-green-600' : 'text-red-600')}>
           {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
@@ -134,7 +156,6 @@ export function StatCard({
   );
 }
 
-// ─── Section Header ───────────────────────────────────────
 export function PageHeader({
   title,
   description,
@@ -145,17 +166,16 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between">
+    <div className="mb-6 flex items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <h1 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h1>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
 
-// ─── Pagination ───────────────────────────────────────────
 export function Pagination({
   page,
   totalPages,

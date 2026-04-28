@@ -64,6 +64,7 @@ export default function LoginPage() {
   const [filledEmail, setFilledEmail] = useState<string | null>(null);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [showContactDeveloper, setShowContactDeveloper] = useState(false);
+  const showDevPanel = process.env.NEXT_PUBLIC_SHOW_DEV_PANEL === 'true';
 
   const {
     register,
@@ -138,16 +139,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-sm sm:p-7">
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* DISTROPRO HEADER - ALWAYS VISIBLE */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
-            <Package className="h-8 w-8 text-primary-foreground" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground sm:h-16 sm:w-16">
+            <Package className="h-7 w-7 sm:h-8 sm:w-8" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">DistroPro</h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">DistroPro</h1>
           <p className="mt-1 text-sm text-muted-foreground">Smart Distribution & Agency Management</p>
         </div>
 
@@ -213,7 +214,7 @@ export default function LoginPage() {
         )}
 
         {/* ───── Dev Quick-Access Panel (development only) ───── */}
-        {process.env.NODE_ENV === 'development' && (
+        {showDevPanel && (
           <div className="mb-6 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 dark:bg-amber-950 p-4">
             <p className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
               🔧 Dev Test Accounts · Click to auto-fill
@@ -287,7 +288,7 @@ export default function LoginPage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* AUTH FORM */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className="rounded-2xl border bg-card/95 backdrop-blur-sm p-6 shadow-sm">
+        <div className="rounded-2xl border bg-card p-5 sm:p-6">
           <h2 className="mb-6 text-lg font-semibold text-foreground">
             {mode === 'signin' ? 'Sign in to your account' : 'Create customer account'}
           </h2>
