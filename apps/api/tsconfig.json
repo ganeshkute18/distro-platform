@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "lib": ["ES2021"],
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -17,8 +18,11 @@
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
     "paths": {
       "@distro/shared-types": ["../../packages/shared-types/src"]
     }
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }
