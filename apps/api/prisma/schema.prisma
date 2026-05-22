@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ──────────────────────────────────────────────────
+
 enum Role {
   OWNER
   STAFF
@@ -47,6 +49,11 @@ enum AuditAction {
   INVENTORY_ADJUSTED
   AGENCY_CREATED
   AGENCY_UPDATED
+  TENANT_CREATED
+  TENANT_UPDATED
+  PRICING_RULE_CREATED
+  PRICING_RULE_UPDATED
+  PRICING_RULE_DELETED
   LOGIN
   LOGOUT
 }
@@ -67,6 +74,83 @@ enum PaymentStatus {
   PAID
   FAILED
 }
+
+enum TenantPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum CustomerType {
+  RETAILER
+  WHOLESALER
+  HOTEL
+  DISTRIBUTOR
+  PREMIUM
+}
+
+enum PriceType {
+  FIXED_PRICE
+  PERCENTAGE_OFF
+  FLAT_DISCOUNT
+}
+
+// ─── Multi-Tenant Models ────────────────────────────────────
+
+model Tenant {
+  id            String     @id @default(cuid())
+  name          String
+  slug          String     @unique
+  domain        String?    @unique
+  logoUrl       String?
+  contactEmail  String?
+  contactPhone  String?
+  gstNumber     String?
+  panNumber     String?
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  plan          TenantPlan @default(STARTER)
+  isActive      Boolean    @default(true)
+  settings      Json?      @default("{}")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tenantUsers   TenantUser[]
+  products      Product[]
+  orders        Order[]
+  categories    Category[]
+  customers     Customer[]
+  pricingRules  PricingRule[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  invitations   Invitation[]
+  agencies      Agency[]
+  appSettings   AppSetting[]
+
+  @@index([slug])
+  @@map("tenants")
+}
+
+model TenantUser {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_users")
+}
+
+// ─── User Model (Global) ────────────────────────────────────
 
 model User {
   id                           String   @id @default(cuid())
@@ -96,16 +180,84 @@ model User {
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
+  tenantUsers    TenantUser[]
   orders         Order[]   @relation("CustomerOrders")
   approvedOrders Order[]   @relation("ApproverOrders")
   auditLogs      AuditLog[]
   invitations    Invitation[] @relation("CreatedInvitations")
   pushSubscriptions PushSubscription[]
+  customers      Customer[]
 
   @@index([email])
   @@index([role])
   @@map("users")
 }
+
+// ─── Customer (Tenant-Scoped) ───────────────────────────────
+
+model Customer {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerType  CustomerType @default(RETAILER)
+  creditLimit   Int?
+  paymentTerms  Int?         @default(0)
+  notes         String?
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  pricingRules  PricingRule[]
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([tenantId, customerType])
+  @@map("customers")
+}
+
+// ─── Dynamic Pricing ────────────────────────────────────────
+
+model PricingRule {
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Target: who gets this price
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerType  CustomerType?
+
+  // Scope: which products
+  productId     String?
+  product       Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  // Pricing details
+  priceType     PriceType
+  value         Decimal      @db.Decimal(10, 2)
+  minQuantity   Int?         @default(1)
+  maxQuantity   Int?
+
+  priority      Int          @default(0)
+  isActive      Boolean      @default(true)
+  validFrom     DateTime?
+  validUntil    DateTime?
+  name          String?
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([tenantId, productId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, customerType])
+  @@index([tenantId, categoryId])
+  @@map("pricing_rules")
+}
+
+// ─── Invitation ─────────────────────────────────────────────
 
 model Invitation {
   id              String   @id @default(cuid())
@@ -118,51 +270,70 @@ model Invitation {
   expiresAt       DateTime
   createdBy       String
   createdByUser   User     @relation("CreatedInvitations", fields: [createdBy], references: [id])
+  tenantId        String?
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt       DateTime @default(now())
 
   @@index([code])
   @@index([email])
   @@index([expiresAt])
+  @@index([tenantId])
   @@map("invitations")
 }
 
+// ─── Agency (Tenant-Scoped) ─────────────────────────────────
+
 model Agency {
   id           String   @id @default(cuid())
-  name         String   @unique
+  name         String
   description  String?
   logoUrl      String?
   contactName  String?
   contactEmail String?
   contactPhone String?
   isActive     Boolean  @default(true)
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   products Product[]
 
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("agencies")
 }
 
+// ─── Category (Tenant-Scoped) ───────────────────────────────
+
 model Category {
   id          String     @id @default(cuid())
-  name        String     @unique
-  slug        String     @unique
+  name        String
+  slug        String
   description String?
   imageUrl    String?
   parentId    String?
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryHierarchy")
+  tenantId    String?
+  tenant      Tenant?    @relation(fields: [tenantId], references: [id])
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  products Product[]
+  products     Product[]
+  pricingRules PricingRule[]
 
+  @@unique([tenantId, slug])
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("categories")
 }
 
+// ─── Product (Tenant-Scoped) ────────────────────────────────
+
 model Product {
   id           String   @id @default(cuid())
-  sku          String   @unique
+  sku          String
   name         String
   description  String?
   imageUrls    String[]
@@ -170,6 +341,9 @@ model Product {
   unitsPerCase Int      @default(1)
   pricePerUnit Int
   taxPercent   Decimal  @default(0) @db.Decimal(5, 2)
+  hsnCode      String?
+  brand        String?
+  tags         String[]
   isActive     Boolean  @default(true)
   isFeatured   Boolean  @default(false)
   minOrderQty  Int      @default(1)
@@ -179,19 +353,25 @@ model Product {
   agency     Agency   @relation(fields: [agencyId], references: [id])
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
 
-  inventory  Inventory?
-  orderItems OrderItem[]
+  inventory    Inventory?
+  orderItems   OrderItem[]
+  pricingRules PricingRule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenantId, sku])
   @@index([agencyId])
   @@index([categoryId])
-  @@index([sku])
+  @@index([tenantId])
   @@index([isActive])
   @@map("products")
 }
+
+// ─── Inventory ──────────────────────────────────────────────
 
 model Inventory {
   id                String   @id @default(cuid())
@@ -221,6 +401,8 @@ model InventoryAdjustment {
   @@map("inventory_adjustments")
 }
 
+// ─── Order (Tenant-Scoped) ──────────────────────────────────
+
 model Order {
   id                  String      @id @default(cuid())
   orderNumber         String      @unique
@@ -244,6 +426,9 @@ model Order {
   approvedBy   User?   @relation("ApproverOrders", fields: [approvedById], references: [id])
   approvedAt   DateTime?
 
+  tenantId     String?
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+
   pendingAt     DateTime  @default(now())
   processingAt  DateTime?
   dispatchedAt  DateTime?
@@ -259,8 +444,11 @@ model Order {
   @@index([customerId])
   @@index([status])
   @@index([createdAt])
+  @@index([tenantId])
   @@map("orders")
 }
+
+// ─── App Settings (Tenant-Scoped) ───────────────────────────
 
 model AppSetting {
   id                 String   @id @default(cuid())
@@ -270,11 +458,16 @@ model AppSetting {
   upiId              String?
   bankDetails        String?
   onlineGatewayNote  String?  @default("Online payment gateway will be integrated in a future release.")
+  tenantId           String?
+  tenant             Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
+  @@index([tenantId])
   @@map("app_settings")
 }
+
+// ─── Order Items ────────────────────────────────────────────
 
 model OrderItem {
   id           String  @id @default(cuid())
@@ -293,6 +486,8 @@ model OrderItem {
   @@map("order_items")
 }
 
+// ─── Order Status History ───────────────────────────────────
+
 model OrderStatusHistory {
   id         String      @id @default(cuid())
   orderId    String
@@ -307,6 +502,8 @@ model OrderStatusHistory {
   @@map("order_status_history")
 }
 
+// ─── Notification (Tenant-Scoped) ───────────────────────────
+
 model Notification {
   id          String   @id @default(cuid())
   userId      String
@@ -315,12 +512,17 @@ model Notification {
   type        String
   referenceId String?
   isRead      Boolean  @default(false)
+  tenantId    String?
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
   createdAt   DateTime @default(now())
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([tenantId])
   @@map("notifications")
 }
+
+// ─── Audit Log (Tenant-Scoped) ──────────────────────────────
 
 model AuditLog {
   id        String      @id @default(cuid())
@@ -333,14 +535,19 @@ model AuditLog {
   after     Json?
   ipAddress String?
   userAgent String?
+  tenantId  String?
+  tenant    Tenant?     @relation(fields: [tenantId], references: [id])
   createdAt DateTime    @default(now())
 
   @@index([userId])
   @@index([action])
   @@index([entity, entityId])
   @@index([createdAt])
+  @@index([tenantId])
   @@map("audit_logs")
 }
+
+// ─── Push Subscription ─────────────────────────────────────
 
 model PushSubscription {
   id        String   @id @default(cuid())

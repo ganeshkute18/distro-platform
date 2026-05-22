@@ -8,6 +8,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  tenantId?: string;
 }
 
 @Injectable()
@@ -40,6 +41,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found or deactivated');
     }
 
-    return user;
+    // Attach tenantId from JWT payload to the user object
+    return {
+      ...user,
+      tenantId: payload.tenantId || null,
+    };
   }
 }

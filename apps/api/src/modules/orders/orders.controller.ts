@@ -11,6 +11,7 @@ import {
 } from './dto/order.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentTenant } from '../../common/decorators/tenant.decorator';
 import { Role, User } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { v2 as cloudinary } from 'cloudinary';
@@ -24,13 +25,13 @@ export class OrdersController {
 
   @Roles(Role.CUSTOMER)
   @Post()
-  create(@Body() dto: CreateOrderDto, @CurrentUser() user: User) {
-    return this.service.create(dto, user.id);
+  create(@Body() dto: CreateOrderDto, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.create(dto, user.id, tenantId);
   }
 
   @Get()
-  findAll(@Query() query: OrderQueryDto, @CurrentUser() user: User) {
-    return this.service.findAll(query, { id: user.id, role: user.role });
+  findAll(@Query() query: OrderQueryDto, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.findAll(query, { id: user.id, role: user.role }, tenantId);
   }
 
   @Get(':id')
@@ -58,8 +59,8 @@ export class OrdersController {
 
   @Roles(Role.CUSTOMER)
   @Post(':id/repeat')
-  repeatOrder(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.service.repeatOrder(id, user.id);
+  repeatOrder(@Param('id') id: string, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.repeatOrder(id, user.id, tenantId);
   }
 
   @Get(':id/invoice')
@@ -74,7 +75,7 @@ export class OrdersController {
       .map((item) => `<tr><td>${item.product.name}</td><td>${item.quantity}</td><td>₹${(item.unitPrice / 100).toFixed(2)}</td><td>₹${(item.subtotal / 100).toFixed(2)}</td></tr>`)
       .join('');
 
-    const html = `<!doctype html><html><body style="font-family:Arial;padding:24px"><h2>Nath Sales Invoice</h2><p><strong>Order:</strong> ${order.orderNumber}</p><p><strong>Customer:</strong> ${order.customer?.name ?? ''}</p><p><strong>Address:</strong> ${order.deliveryAddress ?? '-'}</p><table border="1" cellspacing="0" cellpadding="8" width="100%"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table><h3 style="margin-top:16px">Total: ₹${(order.totalAmount / 100).toFixed(2)}</h3><p><strong>Payment:</strong> ${printableOrder.paymentMethod ?? 'COD'} (${printableOrder.paymentStatus ?? 'PENDING'})</p><p><strong>Generated:</strong> ${new Date().toISOString()}</p></body></html>`;
+    const html = `<!doctype html><html><body style="font-family:Arial;padding:24px"><h2>Invoice</h2><p><strong>Order:</strong> ${order.orderNumber}</p><p><strong>Customer:</strong> ${order.customer?.name ?? ''}</p><p><strong>Address:</strong> ${order.deliveryAddress ?? '-'}</p><table border="1" cellspacing="0" cellpadding="8" width="100%"><thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Subtotal</th></tr></thead><tbody>${rows}</tbody></table><h3 style="margin-top:16px">Total: ₹${(order.totalAmount / 100).toFixed(2)}</h3><p><strong>Payment:</strong> ${printableOrder.paymentMethod ?? 'COD'} (${printableOrder.paymentStatus ?? 'PENDING'})</p><p><strong>Generated:</strong> ${new Date().toISOString()}</p></body></html>`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderNumber}.html"`);
     res.send(html);

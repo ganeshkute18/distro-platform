@@ -6,10 +6,11 @@ import { OrderStatus } from '@prisma/client';
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async salesSummary(from?: string, to?: string) {
+  async salesSummary(from?: string, to?: string, tenantId?: string) {
     const where: Record<string, unknown> = {
       status: { in: [OrderStatus.DISPATCHED, OrderStatus.DELIVERED] },
     };
+    if (tenantId) where.tenantId = tenantId;
     if (from || to) {
       where.createdAt = {
         ...(from && { gte: new Date(from) }),
@@ -47,10 +48,16 @@ export class ReportsService {
     };
   }
 
-  async topProducts(from?: string, to?: string, limit = 10) {
+  async topProducts(from?: string, to?: string, limit = 10, tenantId?: string) {
     const where: Record<string, unknown> = {
       order: { status: { in: [OrderStatus.DISPATCHED, OrderStatus.DELIVERED] } },
     };
+    if (tenantId) {
+      where.order = {
+        ...(where.order as Record<string, unknown>),
+        tenantId,
+      };
+    }
     if (from || to) {
       where.order = {
         ...(where.order as Record<string, unknown>),
@@ -84,10 +91,18 @@ export class ReportsService {
     }));
   }
 
-  async pendingOrders() {
+  async pendingOrders(tenantId?: string) {
+    const pendingWhere: Record<string, unknown> = { status: OrderStatus.PENDING_APPROVAL };
+    if (tenantId) pendingWhere.tenantId = tenantId;
+
+    const statusWhere: Record<string, unknown> = {
+      status: { in: [OrderStatus.PENDING_APPROVAL, OrderStatus.APPROVED, OrderStatus.PROCESSING] },
+    };
+    if (tenantId) statusWhere.tenantId = tenantId;
+
     const [pending, byAge] = await Promise.all([
       this.prisma.order.findMany({
-        where: { status: OrderStatus.PENDING_APPROVAL },
+        where: pendingWhere,
         include: {
           customer: { select: { name: true, businessName: true } },
           _count: { select: { items: true } },
@@ -97,7 +112,7 @@ export class ReportsService {
       this.prisma.order.groupBy({
         by: ['status'],
         _count: { id: true },
-        where: { status: { in: [OrderStatus.PENDING_APPROVAL, OrderStatus.APPROVED, OrderStatus.PROCESSING] } },
+        where: statusWhere,
       }),
     ]);
 
@@ -110,8 +125,12 @@ export class ReportsService {
     };
   }
 
-  async lowStockReport() {
+  async lowStockReport(tenantId?: string) {
+    const productWhere: Record<string, unknown> = {};
+    if (tenantId) productWhere.tenantId = tenantId;
+
     const inventory = await this.prisma.inventory.findMany({
+      where: { product: productWhere },
       include: {
         product: {
           select: { id: true, sku: true, name: true, isActive: true, agency: { select: { name: true } } },
@@ -134,10 +153,11 @@ export class ReportsService {
     return { count: lowStock.length, items: lowStock };
   }
 
-  async customerFrequency(from?: string, to?: string) {
+  async customerFrequency(from?: string, to?: string, tenantId?: string) {
     const where: any = {
       status: { in: [OrderStatus.APPROVED, OrderStatus.PROCESSING, OrderStatus.DISPATCHED, OrderStatus.DELIVERED] },
     };
+    if (tenantId) where.tenantId = tenantId;
     if (from || to) {
       where.createdAt = {
         ...(from && { gte: new Date(from) }),
@@ -167,14 +187,18 @@ export class ReportsService {
     }));
   }
 
-  async dashboard() {
+  async dashboard(tenantId?: string) {
+    const baseWhere: Record<string, unknown> = {};
+    if (tenantId) baseWhere.tenantId = tenantId;
+
     const [totalOrders, pendingApproval, todayOrders, recentOrders, revenue] = await Promise.all([
-      this.prisma.order.count(),
-      this.prisma.order.count({ where: { status: OrderStatus.PENDING_APPROVAL } }),
+      this.prisma.order.count({ where: baseWhere }),
+      this.prisma.order.count({ where: { ...baseWhere, status: OrderStatus.PENDING_APPROVAL } }),
       this.prisma.order.count({
-        where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+        where: { ...baseWhere, createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
       }),
       this.prisma.order.findMany({
+        where: baseWhere,
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -183,7 +207,7 @@ export class ReportsService {
         },
       }),
       this.prisma.order.aggregate({
-        where: { status: OrderStatus.DELIVERED },
+        where: { ...baseWhere, status: OrderStatus.DELIVERED },
         _sum: { totalAmount: true },
       }),
     ]);

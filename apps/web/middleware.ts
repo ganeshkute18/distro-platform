@@ -7,7 +7,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
   CUSTOMER: ['/catalog', '/cart', '/orders', '/profile'],
 };
 
-const PUBLIC_ROUTES = ['/login', '/logout', '/unauthorized'];
+const PUBLIC_ROUTES = ['/login', '/logout', '/unauthorized', '/onboard'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,7 +32,13 @@ export function middleware(request: NextRequest) {
       }
     }
 
-    return NextResponse.next();
+    // Add tenant context to request headers for server components
+    const response = NextResponse.next();
+    if (session.tenantId) {
+      response.headers.set('x-tenant-id', session.tenantId);
+    }
+
+    return response;
   } catch {
     return NextResponse.redirect(new URL('/login', request.url));
   }

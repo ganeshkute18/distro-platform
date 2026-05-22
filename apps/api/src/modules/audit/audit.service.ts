@@ -11,6 +11,7 @@ interface AuditLogParams {
   after?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
+  tenantId?: string | null;
 }
 
 @Injectable()
@@ -31,6 +32,7 @@ export class AuditService {
           after: params.after as never,
           ipAddress: params.ipAddress,
           userAgent: params.userAgent,
+          tenantId: params.tenantId ?? undefined,
         },
       });
     } catch (err) {

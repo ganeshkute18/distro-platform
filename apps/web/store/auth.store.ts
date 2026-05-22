@@ -7,31 +7,48 @@ export interface AuthUser {
   name: string;
   role: 'OWNER' | 'STAFF' | 'CUSTOMER';
   businessName?: string;
+  tenantId?: string;
+}
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string;
+  role: string;
 }
 
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
+  tenants: TenantInfo[];
+  currentTenantId: string | null;
   // Actions
-  setAuth: (user: AuthUser, accessToken: string) => void;
+  setAuth: (user: AuthUser, accessToken: string, tenants?: TenantInfo[]) => void;
   clear: () => void;
   setTokens: (access: string, refresh: string) => void;
+  switchTenant: (tenantId: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
+      tenants: [],
+      currentTenantId: null,
 
-      setAuth: (user, accessToken) => {
+      setAuth: (user, accessToken, tenants = []) => {
+        const currentTenantId = user.tenantId || tenants[0]?.id || null;
+
         // Write cookie for middleware route-protection
         if (typeof document !== 'undefined') {
-          document.cookie = `session=${btoa(JSON.stringify(user))}; path=/; max-age=172800; SameSite=Lax`;
-          localStorage.setItem('sessionUser', JSON.stringify(user));
+          const cookieData = { ...user, tenantId: currentTenantId };
+          document.cookie = `session=${btoa(JSON.stringify(cookieData))}; path=/; max-age=172800; SameSite=Lax`;
+          localStorage.setItem('sessionUser', JSON.stringify(cookieData));
           localStorage.setItem('sessionExpiresAt', String(Date.now() + 48 * 60 * 60 * 1000));
         }
-        set({ user, accessToken });
+        set({ user, accessToken, tenants, currentTenantId });
       },
 
       clear: () => {
@@ -42,7 +59,7 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem('sessionExpiresAt');
           document.cookie = 'session=; path=/; max-age=0';
         }
-        set({ user: null, accessToken: null });
+        set({ user: null, accessToken: null, tenants: [], currentTenantId: null });
       },
 
       setTokens: (access, refresh) => {
@@ -53,10 +70,28 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ accessToken: access });
       },
+
+      switchTenant: (tenantId) => {
+        const { tenants, user } = get();
+        const tenant = tenants.find((t) => t.id === tenantId);
+        if (!tenant) return;
+
+        // Update cookie with new tenant
+        if (typeof document !== 'undefined' && user) {
+          const cookieData = { ...user, tenantId };
+          document.cookie = `session=${btoa(JSON.stringify(cookieData))}; path=/; max-age=172800; SameSite=Lax`;
+          localStorage.setItem('sessionUser', JSON.stringify(cookieData));
+        }
+        set({ currentTenantId: tenantId });
+      },
     }),
     {
       name: 'distro-auth',
-      partialize: (state) => ({ user: state.user }),
+      partialize: (state) => ({
+        user: state.user,
+        tenants: state.tenants,
+        currentTenantId: state.currentTenantId,
+      }),
     },
   ),
 );

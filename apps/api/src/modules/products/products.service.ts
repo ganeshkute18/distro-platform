@@ -14,12 +14,13 @@ const PRODUCT_INCLUDE = {
 export class ProductsService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
 
-  async create(dto: CreateProductDto, userId: string) {
+  async create(dto: CreateProductDto, userId: string, tenantId?: string) {
     const product = await this.prisma.product.create({
       data: {
         ...dto,
         taxPercent: dto.taxPercent ?? 0,
         imageUrls: dto.imageUrls ?? [],
+        tenantId: tenantId ?? undefined,
       },
       include: PRODUCT_INCLUDE,
     });
@@ -33,16 +34,23 @@ export class ProductsService {
       userId, action: AuditAction.PRODUCT_CREATED,
       entity: 'Product', entityId: product.id,
       after: product as never,
+      tenantId,
     });
 
     return product;
   }
 
-  async findAll(query: ProductQueryDto) {
+  async findAll(query: ProductQueryDto, tenantId?: string) {
     const { search, categoryId, agencyId, inStock, featured, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = { isActive: true };
+
+    // Tenant scoping: if tenantId is provided, only show tenant's products
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -78,7 +86,7 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, dto: UpdateProductDto, userId: string) {
+  async update(id: string, dto: UpdateProductDto, userId: string, tenantId?: string) {
     const before = await this.findOne(id);
     const updated = await this.prisma.product.update({
       where: { id }, data: dto, include: PRODUCT_INCLUDE,
@@ -88,12 +96,13 @@ export class ProductsService {
       userId, action: AuditAction.PRODUCT_UPDATED,
       entity: 'Product', entityId: id,
       before: before as never, after: updated as never,
+      tenantId,
     });
 
     return updated;
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string, tenantId?: string) {
     await this.findOne(id);
     const orderRefs = await this.prisma.orderItem.count({ where: { productId: id } });
     if (orderRefs > 0) {
@@ -111,6 +120,7 @@ export class ProductsService {
     await this.audit.log({
       userId, action: AuditAction.PRODUCT_DELETED,
       entity: 'Product', entityId: id,
+      tenantId,
     });
 
     return { success: true };

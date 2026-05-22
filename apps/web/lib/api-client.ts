@@ -12,11 +12,25 @@ class ApiClient {
       withCredentials: true,
     });
 
-    // Request interceptor - attach token
+    // Request interceptor - attach token + tenant header
     this.client.interceptors.request.use((config) => {
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('accessToken');
         if (token) config.headers.Authorization = `Bearer ${token}`;
+
+        // Attach tenant ID from auth store
+        try {
+          const stored = localStorage.getItem('distro-auth');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const tenantId = parsed?.state?.currentTenantId;
+            if (tenantId) {
+              config.headers['X-Tenant-ID'] = tenantId;
+            }
+          }
+        } catch {
+          // Ignore parse errors
+        }
       }
       return config;
     });

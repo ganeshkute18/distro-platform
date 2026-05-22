@@ -48,11 +48,14 @@ export class OrdersService {
     throw new BadRequestException('Unable to generate unique order number. Please try again.');
   }
 
-  async create(dto: CreateOrderDto, customerId: string) {
+  async create(dto: CreateOrderDto, customerId: string, tenantId?: string) {
     // Validate products and compute totals
     const productIds = dto.items.map((i) => i.productId);
+    const productWhere: Record<string, unknown> = { id: { in: productIds }, isActive: true };
+    if (tenantId) productWhere.tenantId = tenantId;
+
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, isActive: true },
+      where: productWhere,
       include: { inventory: true },
     });
 
@@ -115,6 +118,7 @@ export class OrdersService {
         paymentStatus: dto.paymentMethod === 'COD' ? 'PENDING' : 'PAID',
         paymentReceiptUrl: dto.paymentReceiptUrl,
         paymentReceiptNote: dto.paymentReceiptNote,
+        tenantId: tenantId ?? undefined,
         items: { create: itemsData },
         statusHistory: {
           create: { fromStatus: null, toStatus: OrderStatus.PENDING_APPROVAL, changedBy: customerId },
@@ -129,6 +133,7 @@ export class OrdersService {
       entity: 'Order',
       entityId: order.id,
       after: { orderNumber, totalAmount } as never,
+      tenantId,
     });
 
     // Notify owners
@@ -137,11 +142,14 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(query: OrderQueryDto, requestingUser: { id: string; role: Role }) {
+  async findAll(query: OrderQueryDto, requestingUser: { id: string; role: Role }, tenantId?: string) {
     const { status, customerId, from, to, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = {};
+
+    // Tenant scoping
+    if (tenantId) where.tenantId = tenantId;
 
     // Role-based filtering
     if (requestingUser.role === Role.CUSTOMER) {
@@ -215,7 +223,7 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
 
-    await this.audit.log({ userId: approverId, action: AuditAction.ORDER_APPROVED, entity: 'Order', entityId: id });
+    await this.audit.log({ userId: approverId, action: AuditAction.ORDER_APPROVED, entity: 'Order', entityId: id, tenantId: order.tenantId });
     this.eventEmitter.emit('order.approved', updated);
 
     return updated;
@@ -240,7 +248,7 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
 
-    await this.audit.log({ userId: rejectorId, action: AuditAction.ORDER_REJECTED, entity: 'Order', entityId: id, after: { reason: dto.reason } as never });
+    await this.audit.log({ userId: rejectorId, action: AuditAction.ORDER_REJECTED, entity: 'Order', entityId: id, after: { reason: dto.reason } as never, tenantId: order.tenantId });
     this.eventEmitter.emit('order.rejected', updated);
 
     return updated;
@@ -297,6 +305,7 @@ export class OrdersService {
       entity: 'Order', entityId: id,
       before: { status: order.status } as never,
       after: { status: dto.status } as never,
+      tenantId: order.tenantId,
     });
 
     this.eventEmitter.emit(`order.${dto.status.toLowerCase()}`, updated);
@@ -304,7 +313,7 @@ export class OrdersService {
     return updated;
   }
 
-  async repeatOrder(id: string, customerId: string) {
+  async repeatOrder(id: string, customerId: string, tenantId?: string) {
     const original = await this.prisma.order.findUnique({
       where: { id },
       include: { items: true },
@@ -319,7 +328,7 @@ export class OrdersService {
       paymentMethod: 'COD',
     };
 
-    return this.create(createDto, customerId);
+    return this.create(createDto, customerId, tenantId);
   }
 
   async attachPaymentReceipt(id: string, customerId: string, receiptUrl: string, note?: string) {

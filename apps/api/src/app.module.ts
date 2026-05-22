@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module';
@@ -16,6 +16,11 @@ import { AuditModule } from './modules/audit/audit.module';
 import { EmailModule } from './modules/email/email.module';
 import { HealthController } from './health.controller';
 import { SettingsModule } from './modules/settings/settings.module';
+// Phase 1: Multi-Tenant + Dynamic Pricing
+import { TenantsModule } from './modules/tenants/tenants.module';
+import { PricingModule } from './modules/pricing/pricing.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
   imports: [
@@ -35,7 +40,16 @@ import { SettingsModule } from './modules/settings/settings.module';
     AuditModule,
     EmailModule,
     SettingsModule,
+    // Phase 1 modules
+    TenantsModule,
+    PricingModule,
+    CustomersModule,
   ],
   controllers: [HealthController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply tenant resolution middleware to all API routes
+    consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

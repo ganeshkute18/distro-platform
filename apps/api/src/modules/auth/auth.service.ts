@@ -46,7 +46,18 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Invalid credentials');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Resolve tenant membership
+    const tenantMemberships = await this.prisma.tenantUser.findMany({
+      where: { userId: user.id, isActive: true },
+      include: { tenant: { select: { id: true, name: true, slug: true, logoUrl: true, plan: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Use first tenant as default (user can switch later)
+    const defaultTenant = tenantMemberships[0] || null;
+    const tenantId = defaultTenant?.tenant?.id || null;
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantId);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
     await this.auditService.log({
@@ -56,6 +67,7 @@ export class AuthService {
       entityId: user.id,
       ipAddress: ip,
       userAgent,
+      tenantId,
     });
 
     return {
@@ -67,7 +79,15 @@ export class AuthService {
         name: user.name,
         role: user.role,
         businessName: user.businessName,
+        tenantId,
       },
+      tenants: tenantMemberships.map((m) => ({
+        id: m.tenant.id,
+        name: m.tenant.name,
+        slug: m.tenant.slug,
+        logoUrl: m.tenant.logoUrl,
+        role: m.role,
+      })),
     };
   }
 
@@ -89,7 +109,13 @@ export class AuthService {
     const tokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
     if (!tokenMatches) throw new ForbiddenException('Access denied');
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    // Resolve tenant for refresh
+    const tenantMembership = await this.prisma.tenantUser.findFirst({
+      where: { userId: user.id, isActive: true },
+      select: { tenantId: true },
+    });
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantMembership?.tenantId);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
     return tokens;
@@ -380,8 +406,8 @@ export class AuthService {
     });
   }
 
-  private async generateTokens(userId: string, email: string, role: string) {
-    const payload = { sub: userId, email, role };
+  private async generateTokens(userId: string, email: string, role: string, tenantId?: string | null) {
+    const payload = { sub: userId, email, role, ...(tenantId ? { tenantId } : {}) };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
