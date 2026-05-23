@@ -1,0 +1,340 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'DistroPro — AWS Free Tier Infrastructure (EC2 + RDS PostgreSQL)'
+
+# ═══════════════════════════════════════════════════════════
+# FREE TIER ARCHITECTURE:
+#   EC2 t2.micro (750 hrs/month FREE) — runs Docker + NestJS
+#   RDS db.t3.micro (750 hrs/month FREE for 12 months)
+#   No ALB, No NAT Gateway, No ECS Fargate = $0/month
+# ═══════════════════════════════════════════════════════════
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: distro-prod
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair for SSH access
+
+  DBMasterUsername:
+    Type: String
+    Default: distro_admin
+    NoEcho: true
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Master DB password (min 8 chars)
+
+  FrontendUrl:
+    Type: String
+    Default: 'https://distro-platform.vercel.app'
+
+Resources:
+  # ═══════════════════════════════════════════════════════════
+  # VPC & Networking (FREE)
+  # ═══════════════════════════════════════════════════════════
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-vpc'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-1'
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-2'
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # ═══════════════════════════════════════════════════════════
+  # Security Groups (FREE)
+  # ═══════════════════════════════════════════════════════════
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: EC2 - Allow HTTP, HTTPS, SSH
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 4000
+          ToPort: 4000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-ec2-sg'
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS - Allow PostgreSQL from EC2 only
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EC2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-rds-sg'
+
+  # ═══════════════════════════════════════════════════════════
+  # RDS PostgreSQL (FREE TIER: db.t3.micro, 750 hrs/month)
+  # ═══════════════════════════════════════════════════════════
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Public subnets for RDS
+      SubnetIds:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: !Sub '${EnvironmentName}-db'
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '16.4'
+      AllocatedStorage: 20
+      StorageType: gp2
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBName: distro_platform
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      MultiAZ: false
+      StorageEncrypted: false
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-postgres'
+
+  # ═══════════════════════════════════════════════════════════
+  # EC2 Instance (FREE TIER: t2.micro, 750 hrs/month)
+  # ═══════════════════════════════════════════════════════════
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: Database
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !FindInMap [RegionAMI, !Ref 'AWS::Region', AMI]
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 20
+            VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-api-server'
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -e
+
+            # Update system
+            yum update -y
+
+            # Install Docker
+            yum install -y docker git
+            systemctl enable docker
+            systemctl start docker
+            usermod -a -G docker ec2-user
+
+            # Install Docker Compose
+            curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            chmod +x /usr/local/bin/docker-compose
+
+            # Install Node.js 20 (for running prisma migrate)
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+            yum install -y nodejs
+
+            # Create app directory
+            mkdir -p /home/ec2-user/app
+            chown ec2-user:ec2-user /home/ec2-user/app
+
+            # Write environment file
+            cat > /home/ec2-user/app/.env << 'ENVEOF'
+            NODE_ENV=production
+            API_PORT=4000
+            API_PREFIX=api/v1
+            DATABASE_URL=postgresql://${DBUser}:${DBPass}@${DBHost}:5432/distro_platform?schema=public
+            JWT_ACCESS_SECRET=REPLACE_WITH_YOUR_JWT_ACCESS_SECRET
+            JWT_REFRESH_SECRET=REPLACE_WITH_YOUR_JWT_REFRESH_SECRET
+            JWT_ACCESS_EXPIRES_IN=48h
+            JWT_REFRESH_EXPIRES_IN=30d
+            CORS_ORIGINS=${FrontendUrl}
+            FRONTEND_URL=${FrontendUrl}
+            ENVEOF
+
+            chown ec2-user:ec2-user /home/ec2-user/app/.env
+            echo "✅ EC2 setup complete. SSH in and deploy your app!"
+          - DBUser: !Ref DBMasterUsername
+            DBPass: !Ref DBMasterPassword
+            DBHost: !GetAtt Database.Endpoint.Address
+
+  # Elastic IP (FREE: 1 EIP when attached to running instance)
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref EC2Instance
+
+  # ═══════════════════════════════════════════════════════════
+  # ECR Repository (FREE: 500 MB storage)
+  # ═══════════════════════════════════════════════════════════
+
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: distro-api
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [{
+              "rulePriority": 1,
+              "description": "Keep last 3 images only",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": 3
+              },
+              "action": { "type": "expire" }
+            }]
+          }
+
+  # ═══════════════════════════════════════════════════════════
+  # CloudWatch Log Group (FREE: 5GB ingestion)
+  # ═══════════════════════════════════════════════════════════
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/app/${EnvironmentName}'
+      RetentionInDays: 7
+
+# ═══════════════════════════════════════════════════════════
+# AMI Mappings (Amazon Linux 2023 — FREE)
+# ═══════════════════════════════════════════════════════════
+
+Mappings:
+  RegionAMI:
+    ap-south-1:
+      AMI: ami-0dee22c13ea7a9a67
+    us-east-1:
+      AMI: ami-0c02fb55956c7d316
+    us-west-2:
+      AMI: ami-0ceecbb0f30a902a6
+    eu-west-1:
+      AMI: ami-0905a3c97561e0b69
+
+# ═══════════════════════════════════════════════════════════
+# Outputs
+# ═══════════════════════════════════════════════════════════
+
+Outputs:
+  ApiServerIP:
+    Description: EC2 Public IP — your API URL will be http://<this-ip>:4000/api/v1
+    Value: !Ref ElasticIP
+
+  SSHCommand:
+    Description: SSH into your server
+    Value: !Sub 'ssh -i ${KeyPairName}.pem ec2-user@${ElasticIP}'
+
+  RDSEndpoint:
+    Description: RDS PostgreSQL endpoint (internal)
+    Value: !GetAtt Database.Endpoint.Address
+
+  DatabaseURL:
+    Description: Full DATABASE_URL (already written to EC2 .env file)
+    Value: !Sub
+      - 'postgresql://${DBMasterUsername}:****@${DBHost}:5432/distro_platform?schema=public'
+      - DBHost: !GetAtt Database.Endpoint.Address
+
+  ECRRepositoryUri:
+    Description: ECR URI for docker push
+    Value: !GetAtt ECRRepository.RepositoryUri
+
+  UpdateVercelWith:
+    Description: Set this as NEXT_PUBLIC_API_URL in Vercel
+    Value: !Sub 'http://${ElasticIP}:4000/api/v1'
