@@ -21,9 +21,9 @@ export class NotificationsService {
     }
   }
 
-  async create(userId: string, title: string, message: string, type: string, referenceId?: string) {
+  async create(userId: string, title: string, message: string, type: string, referenceId?: string, tenantId?: string) {
     return this.prisma.notification.create({
-      data: { userId, title, message, type, referenceId },
+      data: { userId, title, message, type, referenceId, tenantId: tenantId || '' },
     });
   }
 
@@ -136,39 +136,47 @@ export class NotificationsService {
 
   @OnEvent('order.created')
   async handleOrderCreated(order: Order & { customer?: { name: string } }) {
-    const owners = await this.prisma.user.findMany({
-      where: { role: Role.OWNER, isActive: true },
-      select: { id: true },
-    });
+    // Find owners within the same tenant
+    const tenantOwners = order.tenantId
+      ? await this.prisma.tenantUser.findMany({
+          where: { tenantId: order.tenantId, role: Role.OWNER, isActive: true },
+          select: { userId: true },
+        })
+      : [];
+    const ownerIds = tenantOwners.map((o) => o.userId);
 
     const title = '🆕 New Order Pending Approval';
     const message = `Order #${(order as never as { orderNumber: string }).orderNumber} was placed and is pending approval`;
 
-    await Promise.all([...owners.map((o) => this.create(o.id, title, message, 'ORDER_PLACED', order.id))]);
-    await this.sendPushToUsers(owners.map((o) => o.id), title, message, `/owner/orders/${order.id}`);
+    await Promise.all([...ownerIds.map((id) => this.create(id, title, message, 'ORDER_PLACED', order.id, order.tenantId))]);
+    await this.sendPushToUsers(ownerIds, title, message, `/owner/orders/${order.id}`);
   }
 
   @OnEvent('order.approved')
   async handleOrderApproved(order: Order & { orderNumber?: string }) {
-    // Notify staff
-    const staff = await this.prisma.user.findMany({
-      where: { role: Role.STAFF, isActive: true },
-      select: { id: true },
-    });
+    // Notify staff within the same tenant
+    const tenantStaff = order.tenantId
+      ? await this.prisma.tenantUser.findMany({
+          where: { tenantId: order.tenantId, role: Role.STAFF, isActive: true },
+          select: { userId: true },
+        })
+      : [];
+    const staffIds = tenantStaff.map((s) => s.userId);
 
     await Promise.all(
-      staff.map((s) =>
+      staffIds.map((id) =>
         this.create(
-          s.id,
+          id,
           '✅ Order Ready to Process',
           `Order #${(order as never as { orderNumber: string }).orderNumber} has been approved`,
           'ORDER_APPROVED',
           order.id,
+          order.tenantId,
         ),
       ),
     );
     await this.sendPushToUsers(
-      staff.map((s) => s.id),
+      staffIds,
       'Order Ready to Process',
       `Order #${(order as never as { orderNumber: string }).orderNumber} has been approved`,
       `/staff/orders/${order.id}`,

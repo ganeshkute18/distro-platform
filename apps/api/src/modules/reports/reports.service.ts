@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OrderStatus } from '@prisma/client';
+import { tenantWhere, assertTenantId } from '../../common/helpers/tenant-query.helper';
 
 @Injectable()
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async salesSummary(from?: string, to?: string, tenantId?: string) {
-    const where: Record<string, unknown> = {
+  async salesSummary(tenantId: string, from?: string, to?: string) {
+    assertTenantId(tenantId);
+    const where: Record<string, unknown> = tenantWhere(tenantId, {
       status: { in: [OrderStatus.DISPATCHED, OrderStatus.DELIVERED] },
-    };
-    if (tenantId) where.tenantId = tenantId;
+    });
     if (from || to) {
       where.createdAt = {
         ...(from && { gte: new Date(from) }),
@@ -48,29 +49,22 @@ export class ReportsService {
     };
   }
 
-  async topProducts(from?: string, to?: string, limit = 10, tenantId?: string) {
-    const where: Record<string, unknown> = {
-      order: { status: { in: [OrderStatus.DISPATCHED, OrderStatus.DELIVERED] } },
+  async topProducts(tenantId: string, from?: string, to?: string, limit = 10) {
+    assertTenantId(tenantId);
+    const orderWhere: Record<string, unknown> = {
+      status: { in: [OrderStatus.DISPATCHED, OrderStatus.DELIVERED] },
+      tenantId,
     };
-    if (tenantId) {
-      where.order = {
-        ...(where.order as Record<string, unknown>),
-        tenantId,
-      };
-    }
     if (from || to) {
-      where.order = {
-        ...(where.order as Record<string, unknown>),
-        createdAt: {
-          ...(from && { gte: new Date(from) }),
-          ...(to && { lte: new Date(to) }),
-        },
+      orderWhere.createdAt = {
+        ...(from && { gte: new Date(from) }),
+        ...(to && { lte: new Date(to) }),
       };
     }
 
     const items = await this.prisma.orderItem.groupBy({
       by: ['productId'],
-      where,
+      where: { order: orderWhere },
       _sum: { quantity: true, subtotal: true },
       _count: { id: true },
       orderBy: { _sum: { subtotal: 'desc' } },
@@ -79,7 +73,7 @@ export class ReportsService {
 
     const productIds = items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, tenantId },
       select: { id: true, sku: true, name: true, unitType: true, agency: { select: { name: true } } },
     });
 
@@ -91,14 +85,13 @@ export class ReportsService {
     }));
   }
 
-  async pendingOrders(tenantId?: string) {
-    const pendingWhere: Record<string, unknown> = { status: OrderStatus.PENDING_APPROVAL };
-    if (tenantId) pendingWhere.tenantId = tenantId;
+  async pendingOrders(tenantId: string) {
+    assertTenantId(tenantId);
 
-    const statusWhere: Record<string, unknown> = {
+    const pendingWhere = tenantWhere(tenantId, { status: OrderStatus.PENDING_APPROVAL });
+    const statusWhere = tenantWhere(tenantId, {
       status: { in: [OrderStatus.PENDING_APPROVAL, OrderStatus.APPROVED, OrderStatus.PROCESSING] },
-    };
-    if (tenantId) statusWhere.tenantId = tenantId;
+    });
 
     const [pending, byAge] = await Promise.all([
       this.prisma.order.findMany({
@@ -125,12 +118,11 @@ export class ReportsService {
     };
   }
 
-  async lowStockReport(tenantId?: string) {
-    const productWhere: Record<string, unknown> = {};
-    if (tenantId) productWhere.tenantId = tenantId;
+  async lowStockReport(tenantId: string) {
+    assertTenantId(tenantId);
 
     const inventory = await this.prisma.inventory.findMany({
-      where: { product: productWhere },
+      where: { product: { tenantId } },
       include: {
         product: {
           select: { id: true, sku: true, name: true, isActive: true, agency: { select: { name: true } } },
@@ -153,11 +145,11 @@ export class ReportsService {
     return { count: lowStock.length, items: lowStock };
   }
 
-  async customerFrequency(from?: string, to?: string, tenantId?: string) {
-    const where: any = {
+  async customerFrequency(tenantId: string, from?: string, to?: string) {
+    assertTenantId(tenantId);
+    const where: Record<string, unknown> = tenantWhere(tenantId, {
       status: { in: [OrderStatus.APPROVED, OrderStatus.PROCESSING, OrderStatus.DISPATCHED, OrderStatus.DELIVERED] },
-    };
-    if (tenantId) where.tenantId = tenantId;
+    });
     if (from || to) {
       where.createdAt = {
         ...(from && { gte: new Date(from) }),
@@ -187,9 +179,9 @@ export class ReportsService {
     }));
   }
 
-  async dashboard(tenantId?: string) {
-    const baseWhere: Record<string, unknown> = {};
-    if (tenantId) baseWhere.tenantId = tenantId;
+  async dashboard(tenantId: string) {
+    assertTenantId(tenantId);
+    const baseWhere = tenantWhere(tenantId);
 
     const [totalOrders, pendingApproval, todayOrders, recentOrders, revenue] = await Promise.all([
       this.prisma.order.count({ where: baseWhere }),

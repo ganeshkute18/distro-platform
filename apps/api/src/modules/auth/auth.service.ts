@@ -217,7 +217,7 @@ export class AuthService {
   // SIGNUP ENDPOINTS - ROLE-BASED
   // ============================================================================
 
-  async signupCustomer(dto: SignupCustomerDto) {
+  async signupCustomer(dto: SignupCustomerDto, tenantId?: string) {
     // Check if email already exists
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
@@ -226,32 +226,54 @@ export class AuthService {
 
     // Create customer user
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        passwordHash,
-        role: Role.CUSTOMER,
-        businessName: dto.businessName,
-        phone: dto.phone,
-        address: dto.address,
-        isActive: true,
-        emailVerified: true,
-        approvalStatus: 'APPROVED', // Customers auto-approved
-      },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name,
+          passwordHash,
+          role: Role.CUSTOMER,
+          businessName: dto.businessName,
+          phone: dto.phone,
+          address: dto.address,
+          isActive: true,
+          emailVerified: true,
+          approvalStatus: 'APPROVED', // Customers auto-approved
+        },
+      });
+
+      // If tenantId provided, link customer to tenant
+      if (tenantId) {
+        await tx.tenantUser.create({
+          data: { tenantId, userId: user.id, role: Role.CUSTOMER },
+        });
+
+        // Create Customer record with type from DTO or default
+        await tx.customer.create({
+          data: {
+            tenantId,
+            userId: user.id,
+            customerType: (dto as any).customerType || 'RETAILER',
+            isActive: true,
+          },
+        });
+      }
+
+      return user;
     });
 
     // Log user creation
     await this.auditService.log({
-      userId: user.id,
+      userId: result.id,
       action: AuditAction.USER_CREATED,
       entity: 'User',
-      entityId: user.id,
+      entityId: result.id,
+      tenantId: tenantId || undefined,
     });
 
     return {
       message: 'Account created successfully. You can sign in now.',
-      email: user.email,
+      email: result.email,
       requiresEmailVerification: false,
     };
   }
@@ -289,51 +311,63 @@ export class AuthService {
     const verificationTokenExpiresAt = new Date();
     verificationTokenExpiresAt.setHours(verificationTokenExpiresAt.getHours() + 24);
 
-    // Create staff user with PENDING approval status
+    // Create staff user and link to tenant from invitation
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        passwordHash,
-        role: Role.STAFF,
-        businessName: dto.businessName,
-        isActive: true,
-        emailVerified: false,
-        verificationToken,
-        verificationTokenExpiresAt,
-        approvalStatus: 'PENDING', // Staff requires approval
-      },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name,
+          passwordHash,
+          role: Role.STAFF,
+          businessName: dto.businessName,
+          isActive: true,
+          emailVerified: false,
+          verificationToken,
+          verificationTokenExpiresAt,
+          approvalStatus: 'PENDING', // Staff requires approval
+        },
+      });
 
-    // Mark invitation as used
-    await this.prisma.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        isUsed: true,
-        usedBy: user.id,
-        usedAt: new Date(),
-      },
+      // Link staff to tenant from invitation
+      if (invitation.tenantId) {
+        await tx.tenantUser.create({
+          data: { tenantId: invitation.tenantId, userId: user.id, role: Role.STAFF },
+        });
+      }
+
+      // Mark invitation as used
+      await tx.invitation.update({
+        where: { id: invitation.id },
+        data: {
+          isUsed: true,
+          usedBy: user.id,
+          usedAt: new Date(),
+        },
+      });
+
+      return user;
     });
 
     // Log user creation
     await this.auditService.log({
-      userId: user.id,
+      userId: result.id,
       action: AuditAction.USER_CREATED,
       entity: 'User',
-      entityId: user.id,
+      entityId: result.id,
+      tenantId: invitation.tenantId || undefined,
     });
 
     // Send verification email
     try {
-      await this.emailService.sendVerificationEmail(user.email, verificationToken);
+      await this.emailService.sendVerificationEmail(result.email, verificationToken);
     } catch (error) {
       console.error('Failed to send verification email:', error);
     }
 
     return {
       message: 'Account created successfully. Please verify your email to proceed.',
-      email: user.email,
+      email: result.email,
       requiresEmailVerification: true,
       requiresApproval: true,
     };
@@ -343,11 +377,15 @@ export class AuthService {
   // INVITATION MANAGEMENT - OWNER ONLY
   // ============================================================================
 
-  async generateInvitation(ownerId: string, dto: GenerateInvitationDto) {
-    // Verify owner exists
+  async generateInvitation(ownerId: string, dto: GenerateInvitationDto, tenantId: string) {
+    // Verify owner exists and belongs to tenant
     const owner = await this.prisma.user.findUnique({ where: { id: ownerId } });
     if (!owner || owner.role !== Role.OWNER) {
       throw new ForbiddenException('Only owners can generate invitations');
+    }
+
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context required to generate invitations');
     }
 
     // Generate unique code
@@ -359,7 +397,7 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + (dto.expiresInDays || 7));
 
-    // Create invitation
+    // Create invitation linked to tenant
     const invitation = await this.prisma.invitation.create({
       data: {
         code,
@@ -367,6 +405,7 @@ export class AuthService {
         email: dto.email || null,
         expiresAt,
         createdBy: ownerId,
+        tenantId, // Link invitation to tenant
       },
     });
 
@@ -379,13 +418,13 @@ export class AuthService {
     };
   }
 
-  async listInvitations(ownerId: string, used?: boolean) {
+  async listInvitations(ownerId: string, tenantId: string, used?: boolean) {
     const owner = await this.prisma.user.findUnique({ where: { id: ownerId } });
     if (!owner || owner.role !== Role.OWNER) {
       throw new ForbiddenException('Only owners can view invitations');
     }
 
-    const where: any = { createdBy: ownerId };
+    const where: any = { createdBy: ownerId, tenantId };
     if (used !== undefined) {
       where.isUsed = used;
     }

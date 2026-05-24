@@ -1,10 +1,14 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Role } from '@prisma/client';
 import { TENANT_REQUIRED_KEY } from '../decorators/tenant.decorator';
 
 /**
  * Guard that ensures a valid tenantId exists on the request.
  * Only enforced when the @TenantRequired() decorator is applied.
+ *
+ * PLATFORM_ADMIN users bypass tenant requirement — they operate
+ * at the platform level (no specific tenant context).
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -20,13 +24,20 @@ export class TenantGuard implements CanActivate {
     if (!tenantRequired) return true;
 
     const request = context.switchToHttp().getRequest();
-    const tenantId = request.tenantId || request.user?.tenantId;
+    const user = request.user;
+
+    // PLATFORM_ADMIN operates at platform level — no tenant context needed
+    if (user?.role === Role.PLATFORM_ADMIN) return true;
+
+    // Prefer explicit header/slug/subdomain (middleware), then JWT claim
+    const tenantId = request.tenantId ?? user?.tenantId;
 
     if (!tenantId) {
-      throw new ForbiddenException('Tenant context is required for this operation');
+      throw new ForbiddenException(
+        'Tenant context is required. Send X-Tenant-ID or X-Tenant-Slug, or use a login token with tenantId.',
+      );
     }
 
-    // Ensure tenantId is set on request for downstream use
     request.tenantId = tenantId;
     return true;
   }

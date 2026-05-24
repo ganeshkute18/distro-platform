@@ -21,6 +21,7 @@ export class AuditService {
   constructor(private prisma: PrismaService) {}
 
   async log(params: AuditLogParams): Promise<void> {
+    if (!params.tenantId) return;
     try {
       await this.prisma.auditLog.create({
         data: {
@@ -32,7 +33,7 @@ export class AuditService {
           after: params.after as never,
           ipAddress: params.ipAddress,
           userAgent: params.userAgent,
-          tenantId: params.tenantId ?? undefined,
+          tenantId: params.tenantId,
         },
       });
     } catch (err) {

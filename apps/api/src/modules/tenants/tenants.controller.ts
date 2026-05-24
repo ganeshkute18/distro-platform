@@ -5,7 +5,6 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto, UpdateTenantDto, OnboardTenantDto } from './dto/tenant.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Role, User } from '@prisma/client';
 
@@ -16,35 +15,36 @@ export class TenantsController {
   constructor(private service: TenantsService) {}
 
   /**
-   * Self-service onboarding: creates a new tenant + owner user.
-   * Public endpoint for SaaS signup.
+   * Onboard a new tenant + owner user.
+   * Restricted to PLATFORM_ADMIN — not a public endpoint.
    */
-  @Public()
+  @Roles(Role.PLATFORM_ADMIN)
   @Post('onboard')
   onboard(@Body() dto: OnboardTenantDto) {
     return this.service.onboard(dto);
   }
 
   /**
-   * Create a new tenant (owner only, for existing users).
+   * Create a new tenant (PLATFORM_ADMIN only).
    */
-  @Roles(Role.OWNER)
+  @Roles(Role.PLATFORM_ADMIN)
   @Post()
   create(@Body() dto: CreateTenantDto, @CurrentUser() user: User) {
     return this.service.create(dto, user.id);
   }
 
   /**
-   * List all tenants (super-admin or owner).
+   * List all tenants (PLATFORM_ADMIN only).
    */
-  @Roles(Role.OWNER)
+  @Roles(Role.PLATFORM_ADMIN)
   @Get()
   findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
     return this.service.findAll(page, limit);
   }
 
   /**
-   * Get tenants for the current user.
+   * Get tenants the current user belongs to.
+   * Available to any authenticated user.
    */
   @Get('my')
   getMyTenants(@CurrentUser() user: User) {
@@ -54,25 +54,33 @@ export class TenantsController {
   /**
    * Resolve tenant by slug (public for login/discovery).
    */
-  @Public()
   @Get('by-slug/:slug')
   findBySlug(@Param('slug') slug: string) {
     return this.service.findBySlug(slug);
   }
 
-  @Roles(Role.OWNER)
+  /**
+   * Get a specific tenant (PLATFORM_ADMIN or the tenant's OWNER).
+   */
+  @Roles(Role.PLATFORM_ADMIN, Role.OWNER)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
-  @Roles(Role.OWNER)
+  /**
+   * Update a tenant (PLATFORM_ADMIN only).
+   */
+  @Roles(Role.PLATFORM_ADMIN)
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTenantDto, @CurrentUser() user: User) {
     return this.service.update(id, dto, user.id);
   }
 
-  @Roles(Role.OWNER)
+  /**
+   * Add a user to a tenant (PLATFORM_ADMIN only).
+   */
+  @Roles(Role.PLATFORM_ADMIN)
   @Post(':id/users/:userId')
   addUser(
     @Param('id') tenantId: string,

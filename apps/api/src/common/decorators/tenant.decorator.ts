@@ -6,7 +6,8 @@ import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/com
 export const CurrentTenant = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string | null => {
     const request = ctx.switchToHttp().getRequest();
-    return request.tenantId ?? null;
+    // TenantGuard sets request.tenantId from header or JWT; fallback for optional routes
+    return request.tenantId ?? request.user?.tenantId ?? null;
   },
 );
 

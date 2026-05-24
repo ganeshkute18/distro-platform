@@ -127,12 +127,14 @@ export class TenantsService {
     };
   }
 
-  async findAll(page = 1, limit = 20) {
-    const skip = (page - 1) * limit;
+  async findAll(page?: number, limit?: number) {
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (pageNum - 1) * limitNum;
     const [data, total] = await Promise.all([
       this.prisma.tenant.findMany({
         skip,
-        take: limit,
+        take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { tenantUsers: true, products: true, orders: true } },
@@ -141,7 +143,7 @@ export class TenantsService {
       this.prisma.tenant.count(),
     ]);
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return { data, meta: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) } };
   }
 
   async findOne(id: string) {

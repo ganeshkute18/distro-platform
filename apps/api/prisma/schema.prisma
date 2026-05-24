@@ -10,6 +10,7 @@ datasource db {
 // ─── Enums ──────────────────────────────────────────────────
 
 enum Role {
+  PLATFORM_ADMIN
   OWNER
   STAFF
   CUSTOMER
@@ -85,6 +86,7 @@ enum CustomerType {
   RETAILER
   WHOLESALER
   HOTEL
+  MALL
   DISTRIBUTOR
   PREMIUM
 }
@@ -98,24 +100,24 @@ enum PriceType {
 // ─── Multi-Tenant Models ────────────────────────────────────
 
 model Tenant {
-  id            String     @id @default(cuid())
-  name          String
-  slug          String     @unique
-  domain        String?    @unique
-  logoUrl       String?
-  contactEmail  String?
-  contactPhone  String?
-  gstNumber     String?
-  panNumber     String?
-  address       String?
-  city          String?
-  state         String?
-  pincode       String?
-  plan          TenantPlan @default(STARTER)
-  isActive      Boolean    @default(true)
-  settings      Json?      @default("{}")
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  domain       String?    @unique
+  logoUrl      String?
+  contactEmail String?
+  contactPhone String?
+  gstNumber    String?
+  panNumber    String?
+  address      String?
+  city         String?
+  state        String?
+  pincode      String?
+  plan         TenantPlan @default(STARTER)
+  isActive     Boolean    @default(true)
+  settings     Json?      @default("{}")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   tenantUsers   TenantUser[]
   products      Product[]
@@ -153,40 +155,40 @@ model TenantUser {
 // ─── User Model (Global) ────────────────────────────────────
 
 model User {
-  id                           String   @id @default(cuid())
-  email                        String   @unique
-  phone                        String?  @unique
-  name                         String
-  passwordHash                 String
-  role                         Role     @default(CUSTOMER)
-  isActive                     Boolean  @default(true)
-  businessName                 String?
-  address                      String?
-  profileImageUrl              String?
-  refreshToken                 String?
-  
-  // Email Verification
-  emailVerified                Boolean  @default(false)
-  verificationToken            String?  @unique
-  verificationTokenExpiresAt   DateTime?
-  
-  // User Approval Workflow
-  approvalStatus               ApprovalStatus @default(APPROVED)
-  approvalReason               String?
-  rejectionReason              String?
-  approvedBy                   String?
-  approvedAt                   DateTime?
-  
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  id              String  @id @default(cuid())
+  email           String  @unique
+  phone           String? @unique
+  name            String
+  passwordHash    String
+  role            Role    @default(CUSTOMER)
+  isActive        Boolean @default(true)
+  businessName    String?
+  address         String?
+  profileImageUrl String?
+  refreshToken    String?
 
-  tenantUsers    TenantUser[]
-  orders         Order[]   @relation("CustomerOrders")
-  approvedOrders Order[]   @relation("ApproverOrders")
-  auditLogs      AuditLog[]
-  invitations    Invitation[] @relation("CreatedInvitations")
+  // Email Verification
+  emailVerified              Boolean   @default(false)
+  verificationToken          String?   @unique
+  verificationTokenExpiresAt DateTime?
+
+  // User Approval Workflow
+  approvalStatus  ApprovalStatus @default(APPROVED)
+  approvalReason  String?
+  rejectionReason String?
+  approvedBy      String?
+  approvedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantUsers       TenantUser[]
+  orders            Order[]            @relation("CustomerOrders")
+  approvedOrders    Order[]            @relation("ApproverOrders")
+  auditLogs         AuditLog[]
+  invitations       Invitation[]       @relation("CreatedInvitations")
   pushSubscriptions PushSubscription[]
-  customers      Customer[]
+  customers         Customer[]
 
   @@index([email])
   @@index([role])
@@ -196,20 +198,20 @@ model User {
 // ─── Customer (Tenant-Scoped) ───────────────────────────────
 
 model Customer {
-  id            String       @id @default(cuid())
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  customerType  CustomerType @default(RETAILER)
-  creditLimit   Int?
-  paymentTerms  Int?         @default(0)
-  notes         String?
-  isActive      Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customerType CustomerType @default(RETAILER)
+  creditLimit  Int?
+  paymentTerms Int?         @default(0)
+  notes        String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  pricingRules  PricingRule[]
+  pricingRules PricingRule[]
 
   @@unique([tenantId, userId])
   @@index([tenantId])
@@ -220,35 +222,35 @@ model Customer {
 // ─── Dynamic Pricing ────────────────────────────────────────
 
 model PricingRule {
-  id            String       @id @default(cuid())
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Target: who gets this price
-  customerId    String?
-  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customerType  CustomerType?
+  customerId   String?
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerType CustomerType?
 
   // Scope: which products
-  productId     String?
-  product       Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  categoryId    String?
-  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   // Pricing details
-  priceType     PriceType
-  value         Decimal      @db.Decimal(10, 2)
-  minQuantity   Int?         @default(1)
-  maxQuantity   Int?
+  priceType   PriceType
+  value       Decimal   @db.Decimal(10, 2)
+  minQuantity Int?      @default(1)
+  maxQuantity Int?
 
-  priority      Int          @default(0)
-  isActive      Boolean      @default(true)
-  validFrom     DateTime?
-  validUntil    DateTime?
-  name          String?
-  description   String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  priority    Int       @default(0)
+  isActive    Boolean   @default(true)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  name        String?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([tenantId, productId])
   @@index([tenantId, customerId])
@@ -260,19 +262,19 @@ model PricingRule {
 // ─── Invitation ─────────────────────────────────────────────
 
 model Invitation {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  role            Role     @default(STAFF)
-  email           String?
-  isUsed          Boolean  @default(false)
-  usedBy          String?
-  usedAt          DateTime?
-  expiresAt       DateTime
-  createdBy       String
-  createdByUser   User     @relation("CreatedInvitations", fields: [createdBy], references: [id])
-  tenantId        String?
-  tenant          Tenant?  @relation(fields: [tenantId], references: [id])
-  createdAt       DateTime @default(now())
+  id            String    @id @default(cuid())
+  code          String    @unique
+  role          Role      @default(STAFF)
+  email         String?
+  isUsed        Boolean   @default(false)
+  usedBy        String?
+  usedAt        DateTime?
+  expiresAt     DateTime
+  createdBy     String
+  createdByUser User      @relation("CreatedInvitations", fields: [createdBy], references: [id])
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt     DateTime  @default(now())
 
   @@index([code])
   @@index([email])
@@ -292,8 +294,8 @@ model Agency {
   contactEmail String?
   contactPhone String?
   isActive     Boolean  @default(true)
-  tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -315,8 +317,8 @@ model Category {
   parentId    String?
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryHierarchy")
-  tenantId    String?
-  tenant      Tenant?    @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -353,8 +355,8 @@ model Product {
   agency     Agency   @relation(fields: [agencyId], references: [id])
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
-  tenantId   String?
-  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
   inventory    Inventory?
   orderItems   OrderItem[]
@@ -404,36 +406,36 @@ model InventoryAdjustment {
 // ─── Order (Tenant-Scoped) ──────────────────────────────────
 
 model Order {
-  id                  String      @id @default(cuid())
-  orderNumber         String      @unique
-  customerId          String
-  customer            User        @relation("CustomerOrders", fields: [customerId], references: [id])
-  status              OrderStatus @default(PENDING_APPROVAL)
-  totalAmount         Int
-  taxAmount           Int         @default(0)
-  notes               String?
-  deliveryDate        DateTime?
-  deliveryAddress     String?
-  paymentMethod       PaymentMethod @default(COD)
-  paymentStatus       PaymentStatus @default(PENDING)
-  paymentReceiptUrl   String?
-  paymentReceiptNote  String?
-  rejectionReason     String?
-  isPartialFulfillment Boolean    @default(false)
-  parentOrderId       String?
+  id                   String        @id @default(cuid())
+  orderNumber          String        @unique
+  customerId           String
+  customer             User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  status               OrderStatus   @default(PENDING_APPROVAL)
+  totalAmount          Int
+  taxAmount            Int           @default(0)
+  notes                String?
+  deliveryDate         DateTime?
+  deliveryAddress      String?
+  paymentMethod        PaymentMethod @default(COD)
+  paymentStatus        PaymentStatus @default(PENDING)
+  paymentReceiptUrl    String?
+  paymentReceiptNote   String?
+  rejectionReason      String?
+  isPartialFulfillment Boolean       @default(false)
+  parentOrderId        String?
 
   approvedById String?
-  approvedBy   User?   @relation("ApproverOrders", fields: [approvedById], references: [id])
+  approvedBy   User?     @relation("ApproverOrders", fields: [approvedById], references: [id])
   approvedAt   DateTime?
 
-  tenantId     String?
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  pendingAt     DateTime  @default(now())
-  processingAt  DateTime?
-  dispatchedAt  DateTime?
-  deliveredAt   DateTime?
-  cancelledAt   DateTime?
+  pendingAt    DateTime  @default(now())
+  processingAt DateTime?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  cancelledAt  DateTime?
 
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
@@ -451,18 +453,19 @@ model Order {
 // ─── App Settings (Tenant-Scoped) ───────────────────────────
 
 model AppSetting {
-  id                 String   @id @default(cuid())
-  companyName        String   @default("Nath Sales")
-  companyLogoUrl     String?
-  paymentQrUrl       String?
-  upiId              String?
-  bankDetails        String?
-  onlineGatewayNote  String?  @default("Online payment gateway will be integrated in a future release.")
-  tenantId           String?
-  tenant             Tenant?  @relation(fields: [tenantId], references: [id])
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  companyName       String   @default("Nath Sales")
+  companyLogoUrl    String?
+  paymentQrUrl      String?
+  upiId             String?
+  bankDetails       String?
+  onlineGatewayNote String?  @default("Online payment gateway will be integrated in a future release.")
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
+  @@unique([tenantId])
   @@index([tenantId])
   @@map("app_settings")
 }
@@ -470,16 +473,23 @@ model AppSetting {
 // ─── Order Items ────────────────────────────────────────────
 
 model OrderItem {
-  id           String  @id @default(cuid())
-  orderId      String
-  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product @relation(fields: [productId], references: [id])
-  quantity     Int
-  unitPrice    Int
-  taxPercent   Decimal @db.Decimal(5, 2)
-  subtotal     Int
-  fulfilledQty Int     @default(0)
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+
+  // Pricing snapshot — preserves historical accuracy for invoices
+  basePrice       Int // Product's base price at time of order (paise)
+  unitPrice       Int // Final resolved price after rules (paise)
+  taxPercent      Decimal    @db.Decimal(5, 2)
+  subtotal        Int
+  fulfilledQty    Int        @default(0)
+  appliedRuleId   String? // Which pricing rule was applied
+  appliedRuleName String? // Snapshot of rule name for display
+  priceType       PriceType? // FIXED_PRICE, PERCENTAGE_OFF, FLAT_DISCOUNT
+  discountAmount  Int        @default(0) // Discount given (paise)
 
   @@index([orderId])
   @@index([productId])
@@ -489,14 +499,14 @@ model OrderItem {
 // ─── Order Status History ───────────────────────────────────
 
 model OrderStatusHistory {
-  id         String      @id @default(cuid())
+  id         String       @id @default(cuid())
   orderId    String
-  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   fromStatus OrderStatus?
   toStatus   OrderStatus
   changedBy  String
   note       String?
-  createdAt  DateTime    @default(now())
+  createdAt  DateTime     @default(now())
 
   @@index([orderId])
   @@map("order_status_history")
@@ -512,8 +522,8 @@ model Notification {
   type        String
   referenceId String?
   isRead      Boolean  @default(false)
-  tenantId    String?
-  tenant      Tenant?  @relation(fields: [tenantId], references: [id])
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
   createdAt   DateTime @default(now())
 
   @@index([userId, isRead])
@@ -535,8 +545,8 @@ model AuditLog {
   after     Json?
   ipAddress String?
   userAgent String?
-  tenantId  String?
-  tenant    Tenant?     @relation(fields: [tenantId], references: [id])
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
   createdAt DateTime    @default(now())
 
   @@index([userId])

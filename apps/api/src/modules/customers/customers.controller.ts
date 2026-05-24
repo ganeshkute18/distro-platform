@@ -5,11 +5,12 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 import { Role, CustomerType } from '@prisma/client';
 
 @ApiTags('Customers')
 @ApiBearerAuth()
+@TenantRequired()
 @Controller('customers')
 export class CustomersController {
   constructor(private service: CustomersService) {}

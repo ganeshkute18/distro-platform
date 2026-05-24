@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dto/product.dto';
 import { AuditAction } from '@prisma/client';
+import { tenantWhere, tenantFindOne, assertTenantId } from '../../common/helpers/tenant-query.helper';
 
 const PRODUCT_INCLUDE = {
   agency: { select: { id: true, name: true, logoUrl: true } },
@@ -14,13 +15,31 @@ const PRODUCT_INCLUDE = {
 export class ProductsService {
   constructor(private prisma: PrismaService, private audit: AuditService) {}
 
-  async create(dto: CreateProductDto, userId: string, tenantId?: string) {
+  async create(dto: CreateProductDto, userId: string, tenantId: string) {
+    assertTenantId(tenantId);
+
+    // Validate agency belongs to this tenant
+    if (dto.agencyId) {
+      const agency = await this.prisma.agency.findFirst({
+        where: { id: dto.agencyId, tenantId },
+      });
+      if (!agency) throw new BadRequestException('Agency not found or does not belong to this tenant');
+    }
+
+    // Validate category belongs to this tenant
+    if (dto.categoryId) {
+      const category = await this.prisma.category.findFirst({
+        where: { id: dto.categoryId, tenantId },
+      });
+      if (!category) throw new BadRequestException('Category not found or does not belong to this tenant');
+    }
+
     const product = await this.prisma.product.create({
       data: {
         ...dto,
         taxPercent: dto.taxPercent ?? 0,
         imageUrls: dto.imageUrls ?? [],
-        tenantId: tenantId ?? undefined,
+        tenantId,
       },
       include: PRODUCT_INCLUDE,
     });
@@ -40,16 +59,12 @@ export class ProductsService {
     return product;
   }
 
-  async findAll(query: ProductQueryDto, tenantId?: string) {
+  async findAll(query: ProductQueryDto, tenantId: string) {
+    assertTenantId(tenantId);
     const { search, categoryId, agencyId, inStock, featured, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = { isActive: true };
-
-    // Tenant scoping: if tenantId is provided, only show tenant's products
-    if (tenantId) {
-      where.tenantId = tenantId;
-    }
+    const where: Record<string, unknown> = tenantWhere(tenantId, { isActive: true });
 
     if (search) {
       where.OR = [
@@ -77,17 +92,19 @@ export class ProductsService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+  async findOne(id: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const product = await this.prisma.product.findFirst({
+      where: tenantFindOne(id, tenantId),
       include: PRODUCT_INCLUDE,
     });
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
 
-  async update(id: string, dto: UpdateProductDto, userId: string, tenantId?: string) {
-    const before = await this.findOne(id);
+  async update(id: string, dto: UpdateProductDto, userId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const before = await this.findOne(id, tenantId);
     const updated = await this.prisma.product.update({
       where: { id }, data: dto, include: PRODUCT_INCLUDE,
     });
@@ -102,8 +119,9 @@ export class ProductsService {
     return updated;
   }
 
-  async remove(id: string, userId: string, tenantId?: string) {
-    await this.findOne(id);
+  async remove(id: string, userId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    await this.findOne(id, tenantId); // validates tenant ownership
     const orderRefs = await this.prisma.orderItem.count({ where: { productId: id } });
     if (orderRefs > 0) {
       throw new BadRequestException('Cannot delete product already used in orders');
@@ -126,8 +144,9 @@ export class ProductsService {
     return { success: true };
   }
 
-  async addImages(id: string, urls: string[]) {
-    const product = await this.findOne(id);
+  async addImages(id: string, urls: string[], tenantId: string) {
+    assertTenantId(tenantId);
+    const product = await this.findOne(id, tenantId);
     return this.prisma.product.update({
       where: { id },
       data: { imageUrls: [...product.imageUrls, ...urls] },

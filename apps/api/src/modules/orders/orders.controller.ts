@@ -11,7 +11,7 @@ import {
 } from './dto/order.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 import { Role, User } from '@prisma/client';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { v2 as cloudinary } from 'cloudinary';
@@ -19,6 +19,7 @@ import { Response } from 'express';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
+@TenantRequired()
 @Controller('orders')
 export class OrdersController {
   constructor(private service: OrdersService) {}
@@ -35,26 +36,26 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.service.findOne(id, { id: user.id, role: user.role });
+  findOne(@Param('id') id: string, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.findOne(id, { id: user.id, role: user.role }, tenantId);
   }
 
   @Roles(Role.OWNER)
   @Patch(':id/approve')
-  approve(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.service.approve(id, user.id);
+  approve(@Param('id') id: string, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.approve(id, user.id, tenantId);
   }
 
   @Roles(Role.OWNER)
   @Patch(':id/reject')
-  reject(@Param('id') id: string, @Body() dto: RejectOrderDto, @CurrentUser() user: User) {
-    return this.service.reject(id, dto, user.id);
+  reject(@Param('id') id: string, @Body() dto: RejectOrderDto, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.reject(id, dto, user.id, tenantId);
   }
 
   @Roles(Role.STAFF, Role.OWNER)
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto, @CurrentUser() user: User) {
-    return this.service.updateStatus(id, dto, user.id);
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto, @CurrentUser() user: User, @CurrentTenant() tenantId: string) {
+    return this.service.updateStatus(id, dto, user.id, tenantId);
   }
 
   @Roles(Role.CUSTOMER)
@@ -67,9 +68,10 @@ export class OrdersController {
   async invoice(
     @Param('id') id: string,
     @CurrentUser() user: User,
+    @CurrentTenant() tenantId: string,
     @Res() res: Response,
   ) {
-    const order = await this.service.findOne(id, { id: user.id, role: user.role });
+    const order = await this.service.findOne(id, { id: user.id, role: user.role }, tenantId);
     const printableOrder = order as any;
     const rows = (order.items || [])
       .map((item) => `<tr><td>${item.product.name}</td><td>${item.quantity}</td><td>₹${(item.unitPrice / 100).toFixed(2)}</td><td>₹${(item.subtotal / 100).toFixed(2)}</td></tr>`)
@@ -90,6 +92,7 @@ export class OrdersController {
     @UploadedFile() file: Express.Multer.File,
     @Body('note') note: string | undefined,
     @CurrentUser() user: User,
+    @CurrentTenant() tenantId: string,
   ) {
     const receiptUrl = await new Promise<string>((resolve, reject) => {
       cloudinary.uploader
@@ -99,6 +102,6 @@ export class OrdersController {
         })
         .end(file.buffer);
     });
-    return this.service.attachPaymentReceipt(id, user.id, receiptUrl, note);
+    return this.service.attachPaymentReceipt(id, user.id, receiptUrl, tenantId, note);
   }
 }

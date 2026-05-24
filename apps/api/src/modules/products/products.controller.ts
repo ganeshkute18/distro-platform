@@ -8,12 +8,13 @@ import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto, ProductQueryDto } from './dto/product.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 import { Role, User } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 
 @ApiTags('Products')
 @ApiBearerAuth()
+@TenantRequired()
 @Controller('products')
 export class ProductsController {
   constructor(private service: ProductsService) {}
@@ -24,8 +25,8 @@ export class ProductsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentTenant() tenantId: string) {
+    return this.service.findOne(id, tenantId);
   }
 
   @Roles(Role.OWNER)
@@ -53,6 +54,7 @@ export class ProductsController {
   async uploadImages(
     @Param('id') id: string,
     @UploadedFiles() files: Express.Multer.File[],
+    @CurrentTenant() tenantId: string,
   ) {
     const uploads = await Promise.all(
       files.map((file) =>
@@ -66,6 +68,6 @@ export class ProductsController {
         }),
       ),
     );
-    return this.service.addImages(id, uploads);
+    return this.service.addImages(id, uploads, tenantId);
   }
 }

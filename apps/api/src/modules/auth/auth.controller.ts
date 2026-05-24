@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, SignupCustomerDto, SignupStaffDto, GenerateInvitationDto, VerifyEmailDto, ResendVerificationEmailDto } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CurrentTenant } from '../../common/decorators/tenant.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { User, Role } from '@prisma/client';
@@ -28,8 +29,8 @@ export class AuthController {
   @Public()
   @Post('signup/customer')
   @HttpCode(HttpStatus.CREATED)
-  signupCustomer(@Body() dto: SignupCustomerDto) {
-    return this.authService.signupCustomer(dto);
+  signupCustomer(@Body() dto: SignupCustomerDto, @Req() req: Request & { tenantId?: string }) {
+    return this.authService.signupCustomer(dto, req.tenantId);
   }
 
   @Public()
@@ -56,17 +57,18 @@ export class AuthController {
   @Roles(Role.OWNER)
   @Post('invitations/generate')
   @HttpCode(HttpStatus.CREATED)
-  generateInvitation(@CurrentUser() user: User, @Body() dto: GenerateInvitationDto) {
-    return this.authService.generateInvitation(user.id, dto);
+  generateInvitation(@CurrentUser() user: User, @Body() dto: GenerateInvitationDto, @CurrentTenant() tenantId: string) {
+    return this.authService.generateInvitation(user.id, dto, tenantId);
   }
 
   @Roles(Role.OWNER)
   @Get('invitations')
   listInvitations(
     @CurrentUser() user: User,
+    @CurrentTenant() tenantId: string,
     @Query('used') used?: boolean,
   ) {
-    return this.authService.listInvitations(user.id, used);
+    return this.authService.listInvitations(user.id, tenantId, used);
   }
 
   @Public()

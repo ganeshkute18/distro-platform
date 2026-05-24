@@ -6,11 +6,12 @@ import { PricingService } from './pricing.service';
 import { CreatePricingRuleDto, UpdatePricingRuleDto, ResolvePriceDto, BulkResolvePriceDto } from './dto/pricing.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 import { Role, User, CustomerType } from '@prisma/client';
 
 @ApiTags('Pricing')
 @ApiBearerAuth()
+@TenantRequired()
 @Controller('pricing')
 export class PricingController {
   constructor(private service: PricingService) {}

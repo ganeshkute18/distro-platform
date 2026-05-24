@@ -7,9 +7,9 @@ import { PrismaService } from '../../prisma/prisma.service';
  * 1. X-Tenant-ID header (explicit)
  * 2. X-Tenant-Slug header (by slug lookup)
  * 3. Subdomain (e.g., agency1.distropro.com)
- * 4. JWT payload (tenantId claim — set after auth)
+ * JWT tenantId is applied later by TenantGuard (after auth) when @TenantRequired() is set.
  *
- * Sets `req.tenantId` for downstream use.
+ * Sets `req.tenantId` for downstream use when resolved from headers/subdomain.
  */
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {

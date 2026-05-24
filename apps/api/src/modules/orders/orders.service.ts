@@ -3,13 +3,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { PricingService } from '../pricing/pricing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   CreateOrderDto, RejectOrderDto, UpdateOrderStatusDto, OrderQueryDto,
 } from './dto/order.dto';
-import { AuditAction, OrderStatus, Role } from '@prisma/client';
+import { AuditAction, OrderStatus, Role, CustomerType } from '@prisma/client';
+import { tenantWhere, assertTenantId } from '../../common/helpers/tenant-query.helper';
 
 const ORDER_INCLUDE = {
   customer: { select: { id: true, name: true, email: true, businessName: true, phone: true } },
@@ -27,6 +29,7 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private inventoryService: InventoryService,
+    private pricingService: PricingService,
     private notificationsService: NotificationsService,
     private audit: AuditService,
     private eventEmitter: EventEmitter2,
@@ -48,19 +51,18 @@ export class OrdersService {
     throw new BadRequestException('Unable to generate unique order number. Please try again.');
   }
 
-  async create(dto: CreateOrderDto, customerId: string, tenantId?: string) {
-    // Validate products and compute totals
-    const productIds = dto.items.map((i) => i.productId);
-    const productWhere: Record<string, unknown> = { id: { in: productIds }, isActive: true };
-    if (tenantId) productWhere.tenantId = tenantId;
+  async create(dto: CreateOrderDto, customerId: string, tenantId: string) {
+    assertTenantId(tenantId);
 
+    // Validate products exist and belong to this tenant
+    const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({
-      where: productWhere,
+      where: { id: { in: productIds }, isActive: true, tenantId },
       include: { inventory: true },
     });
 
     if (products.length !== productIds.length) {
-      throw new BadRequestException('One or more products are invalid or inactive');
+      throw new BadRequestException('One or more products are invalid, inactive, or do not belong to this tenant');
     }
 
     // Check stock availability
@@ -82,28 +84,55 @@ export class OrdersService {
       }
     }
 
+    // Resolve customer type for pricing
+    const customerRecord = await this.prisma.customer.findFirst({
+      where: { userId: customerId, tenantId },
+      select: { id: true, customerType: true },
+    });
+    const customerType: CustomerType | undefined = customerRecord?.customerType ?? undefined;
+    const pricingCustomerId: string | undefined = customerRecord?.id ?? undefined;
+
     // Generate order number (collision-safe)
     const orderNumber = await this.generateUniqueOrderNumber();
 
-    // Compute totals
+    // Resolve prices using the pricing engine — this is the critical fix
     let totalAmount = 0;
     let taxAmount = 0;
-    const itemsData = dto.items.map((item) => {
-      const product = products.find((p) => p.id === item.productId)!;
-      const subtotal = product.pricePerUnit * item.quantity;
-      const taxDecimal = Number(product.taxPercent) / 100;
-      const tax = Math.round(subtotal * taxDecimal);
-      totalAmount += subtotal;
-      taxAmount += tax;
+    const itemsData = await Promise.all(
+      dto.items.map(async (item) => {
+        const product = products.find((p) => p.id === item.productId)!;
 
-      return {
-        productId: item.productId,
-        quantity: item.quantity,
-        unitPrice: product.pricePerUnit,
-        taxPercent: product.taxPercent,
-        subtotal,
-      };
-    });
+        // Use pricing engine to resolve the actual price for this customer
+        const resolved = await this.pricingService.resolvePrice(
+          tenantId,
+          item.productId,
+          pricingCustomerId,
+          customerType,
+          item.quantity,
+        );
+
+        const unitPrice = resolved.resolvedPrice;
+        const basePrice = resolved.basePrice;
+        const subtotal = unitPrice * item.quantity;
+        const taxDecimal = Number(product.taxPercent) / 100;
+        const tax = Math.round(subtotal * taxDecimal);
+        totalAmount += subtotal;
+        taxAmount += tax;
+
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          basePrice,
+          unitPrice,
+          taxPercent: product.taxPercent,
+          subtotal,
+          appliedRuleId: resolved.ruleApplied,
+          appliedRuleName: resolved.ruleName,
+          priceType: resolved.priceType,
+          discountAmount: resolved.discount * item.quantity,
+        };
+      }),
+    );
 
     const order = await this.prisma.order.create({
       data: {
@@ -118,7 +147,7 @@ export class OrdersService {
         paymentStatus: dto.paymentMethod === 'COD' ? 'PENDING' : 'PAID',
         paymentReceiptUrl: dto.paymentReceiptUrl,
         paymentReceiptNote: dto.paymentReceiptNote,
-        tenantId: tenantId ?? undefined,
+        tenantId,
         items: { create: itemsData },
         statusHistory: {
           create: { fromStatus: null, toStatus: OrderStatus.PENDING_APPROVAL, changedBy: customerId },
@@ -142,14 +171,12 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(query: OrderQueryDto, requestingUser: { id: string; role: Role }, tenantId?: string) {
+  async findAll(query: OrderQueryDto, requestingUser: { id: string; role: Role }, tenantId: string) {
+    assertTenantId(tenantId);
     const { status, customerId, from, to, page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
 
-    const where: Record<string, unknown> = {};
-
-    // Tenant scoping
-    if (tenantId) where.tenantId = tenantId;
+    const where: Record<string, unknown> = tenantWhere(tenantId);
 
     // Role-based filtering
     if (requestingUser.role === Role.CUSTOMER) {
@@ -172,7 +199,7 @@ export class OrdersService {
         where, skip, take: limit,
         include: {
           customer: { select: { id: true, name: true, businessName: true } },
-          items: { select: { id: true, quantity: true, subtotal: true } },
+          items: { select: { id: true, quantity: true, subtotal: true, basePrice: true, unitPrice: true, discountAmount: true } },
           _count: { select: { items: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -183,8 +210,12 @@ export class OrdersService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async findOne(id: string, requestingUser: { id: string; role: Role }) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: ORDER_INCLUDE });
+  async findOne(id: string, requestingUser: { id: string; role: Role }, tenantId: string) {
+    assertTenantId(tenantId);
+    const order = await this.prisma.order.findFirst({
+      where: { id, tenantId },
+      include: ORDER_INCLUDE,
+    });
     if (!order) throw new NotFoundException('Order not found');
 
     if (requestingUser.role === Role.CUSTOMER && order.customerId !== requestingUser.id) {
@@ -198,8 +229,12 @@ export class OrdersService {
     return order;
   }
 
-  async approve(id: string, approverId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+  async approve(id: string, approverId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const order = await this.prisma.order.findFirst({
+      where: { id, tenantId },
+      include: { items: true },
+    });
     if (!order) throw new NotFoundException('Order not found');
     if (order.status !== OrderStatus.PENDING_APPROVAL) {
       throw new BadRequestException(`Order is ${order.status}, cannot approve`);
@@ -223,14 +258,15 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
 
-    await this.audit.log({ userId: approverId, action: AuditAction.ORDER_APPROVED, entity: 'Order', entityId: id, tenantId: order.tenantId });
+    await this.audit.log({ userId: approverId, action: AuditAction.ORDER_APPROVED, entity: 'Order', entityId: id, tenantId });
     this.eventEmitter.emit('order.approved', updated);
 
     return updated;
   }
 
-  async reject(id: string, dto: RejectOrderDto, rejectorId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
+  async reject(id: string, dto: RejectOrderDto, rejectorId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const order = await this.prisma.order.findFirst({ where: { id, tenantId } });
     if (!order) throw new NotFoundException('Order not found');
     if (order.status !== OrderStatus.PENDING_APPROVAL) {
       throw new BadRequestException(`Order is ${order.status}, cannot reject`);
@@ -248,14 +284,18 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
 
-    await this.audit.log({ userId: rejectorId, action: AuditAction.ORDER_REJECTED, entity: 'Order', entityId: id, after: { reason: dto.reason } as never, tenantId: order.tenantId });
+    await this.audit.log({ userId: rejectorId, action: AuditAction.ORDER_REJECTED, entity: 'Order', entityId: id, after: { reason: dto.reason } as never, tenantId });
     this.eventEmitter.emit('order.rejected', updated);
 
     return updated;
   }
 
-  async updateStatus(id: string, dto: UpdateOrderStatusDto, staffId: string) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+  async updateStatus(id: string, dto: UpdateOrderStatusDto, staffId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const order = await this.prisma.order.findFirst({
+      where: { id, tenantId },
+      include: { items: true },
+    });
     if (!order) throw new NotFoundException('Order not found');
 
     const ALLOWED_TRANSITIONS: Record<string, OrderStatus> = {
@@ -305,7 +345,7 @@ export class OrdersService {
       entity: 'Order', entityId: id,
       before: { status: order.status } as never,
       after: { status: dto.status } as never,
-      tenantId: order.tenantId,
+      tenantId,
     });
 
     this.eventEmitter.emit(`order.${dto.status.toLowerCase()}`, updated);
@@ -313,9 +353,10 @@ export class OrdersService {
     return updated;
   }
 
-  async repeatOrder(id: string, customerId: string, tenantId?: string) {
-    const original = await this.prisma.order.findUnique({
-      where: { id },
+  async repeatOrder(id: string, customerId: string, tenantId: string) {
+    assertTenantId(tenantId);
+    const original = await this.prisma.order.findFirst({
+      where: { id, tenantId },
       include: { items: true },
     });
     if (!original || original.customerId !== customerId) {
@@ -331,8 +372,9 @@ export class OrdersService {
     return this.create(createDto, customerId, tenantId);
   }
 
-  async attachPaymentReceipt(id: string, customerId: string, receiptUrl: string, note?: string) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
+  async attachPaymentReceipt(id: string, customerId: string, receiptUrl: string, tenantId: string, note?: string) {
+    assertTenantId(tenantId);
+    const order = await this.prisma.order.findFirst({ where: { id, tenantId } });
     if (!order || order.customerId !== customerId) {
       throw new NotFoundException('Order not found');
     }

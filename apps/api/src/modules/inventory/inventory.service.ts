@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AuditAction } from '@prisma/client';
+import { assertTenantId } from '../../common/helpers/tenant-query.helper';
 
 @Injectable()
 export class InventoryService {
@@ -16,11 +17,15 @@ export class InventoryService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async findAll(page = 1, limit = 20, lowStock = false) {
+  async findAll(tenantId: string, page = 1, limit = 20, lowStock = false) {
+    assertTenantId(tenantId);
     const skip = (page - 1) * limit;
 
-    // Fetch all and filter in-memory (lowStock filter needs cross-column comparison)
+    // Scope to tenant via product.tenantId
     const allInventory = await this.prisma.inventory.findMany({
+      where: {
+        product: { tenantId },
+      },
       include: {
         product: {
           select: { id: true, sku: true, name: true, unitType: true, isActive: true,
@@ -46,7 +51,16 @@ export class InventoryService {
     };
   }
 
-  async findByProduct(productId: string) {
+  async findByProduct(productId: string, tenantId: string) {
+    assertTenantId(tenantId);
+
+    // Validate product belongs to tenant
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('Product not found in this tenant');
+
     const inv = await this.prisma.inventory.findUnique({
       where: { productId },
       include: { product: { select: { id: true, sku: true, name: true } } },
@@ -55,7 +69,16 @@ export class InventoryService {
     return { ...inv, availableStock: inv.totalStock - inv.reservedStock };
   }
 
-  async adjust(productId: string, delta: number, reason: string, performedBy: string, orderId?: string) {
+  async adjust(productId: string, delta: number, reason: string, performedBy: string, tenantId: string, orderId?: string) {
+    assertTenantId(tenantId);
+
+    // Validate product belongs to tenant
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('Product not found in this tenant');
+
     const inv = await this.prisma.inventory.findUnique({ where: { productId } });
     if (!inv) throw new NotFoundException('Inventory not found');
 
@@ -82,6 +105,7 @@ export class InventoryService {
       entityId: inv.id,
       before: { totalStock: inv.totalStock } as never,
       after: { totalStock: newTotal } as never,
+      tenantId,
     });
 
     // Emit low stock event if threshold crossed
@@ -145,7 +169,16 @@ export class InventoryService {
     });
   }
 
-  async getHistory(productId: string, page = 1, limit = 20) {
+  async getHistory(productId: string, tenantId: string, page = 1, limit = 20) {
+    assertTenantId(tenantId);
+
+    // Validate product belongs to tenant
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('Product not found in this tenant');
+
     const inv = await this.prisma.inventory.findUnique({ where: { productId } });
     if (!inv) throw new NotFoundException('Inventory not found');
 
