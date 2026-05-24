@@ -148,6 +148,20 @@ This will:
 - Create PLATFORM_ADMIN account
 - Configure all environment variables including CORS_ORIGINS
 
+## Free HTTPS alternative: Cloudflare Tunnel
+When you do not want to purchase a domain, use Cloudflare Tunnel to expose the backend over HTTPS:
+
+1. SSH to EC2.
+2. Install `cloudflared`.
+3. Run `cloudflared tunnel --url http://localhost:4000`.
+4. Copy the generated `https://<tunnel-url>.trycloudflare.com` URL.
+5. Set Vercel env vars to:
+   - `NEXT_PUBLIC_API_URL=https://<tunnel-url>/api/v1`
+   - `NEXT_PUBLIC_SOCKET_URL=https://<tunnel-url>`
+6. Redeploy the Vercel frontend.
+
+See [infra/CLOUDFLARE_TUNNEL.md](infra/CLOUDFLARE_TUNNEL.md) for exact commands.
+
 ## Troubleshooting
 
 ### "Failed to load response data" or "Provisional headers are shown"
