@@ -15,44 +15,89 @@ Enhanced backend CORS configuration in [apps/api/src/main.ts](apps/api/src/main.
 
 ## Required Deployment Steps
 
-### Step 1: Update EC2 Environment Variables
-SSH into your EC2 instance and update the backend .env file:
+### Step 0: DNS records for HTTPS API
+Create an A record for the API subdomain pointing to your EC2 public IPv4 address.
+
+- Name: `api`
+- Type: `A`
+- Value: `<EC2_PUBLIC_IPV4>`
+- TTL: `300`
+
+Optional for convenience:
+- Name: `www.api`
+- Type: `CNAME`
+- Value: `api.distropro.in`
+
+### Step 1: EC2 security group changes
+Update the EC2 security group to allow only the necessary public ports:
+
+- Inbound TCP 80 from `0.0.0.0/0`
+- Inbound TCP 443 from `0.0.0.0/0`
+- Inbound TCP 22 from your administrative IP only, e.g. `203.0.113.45/32`
+- Remove any inbound rule opening TCP 4000 to the public internet
+
+### Step 2: Install Nginx and configure reverse proxy
+SSH into EC2 and run the setup script or manual commands.
 
 ```bash
-# SSH to EC2
 ssh -i "$EC2_KEY" ec2-user@$EC2_IP
-
-# Edit the environment file
-nano /home/ec2-user/.env
-
-# Add/update CORS_ORIGINS with your Vercel production domain:
-# CORS_ORIGINS="https://distro-platform.vercel.app,http://localhost:3000"
-```
-
-**Critical:** The `CORS_ORIGINS` value must exactly match your Vercel deployment domain.
-For example, if deployed at `https://distro-platform.vercel.app`, use exactly that.
-
-### Step 2: Rebuild Docker Image with Updated Code
-On EC2, pull the latest code and rebuild the API image:
-
-```bash
 cd /home/ec2-user/app/distro-platform
 
-# Pull latest changes from git (includes CORS fix)
-git fetch --all
-git reset --hard origin/main
+# Copy .env into apps/api if not already present
+cp /home/ec2-user/.env apps/api/.env
 
-# Rebuild the API Docker image
-docker build --target production -f apps/api/Dockerfile -t distro-api:latest .
+# Use the helper script:
+API_DOMAIN=api.distropro.in CERTBOT_EMAIL=admin@distropro.in ./infra/setup-nginx-ssl.sh
 ```
 
-### Step 3: Stop Old Container and Start New One
+If you prefer manual install:
+
 ```bash
-# Stop and remove old container
+sudo dnf install -y nginx certbot python3-certbot-nginx || sudo yum install -y nginx certbot python3-certbot-nginx
+sudo systemctl enable --now nginx
+sudo tee /etc/nginx/conf.d/api.distropro.in.conf > /dev/null <<'EOF'
+server {
+  listen 80;
+  server_name api.distropro.in;
+  location / {
+    return 301 https://$host$request_uri;
+  }
+  location /.well-known/acme-challenge/ {
+    root /var/lib/letsencrypt;
+  }
+}
+server {
+  listen 443 ssl http2;
+  server_name api.distropro.in;
+  ssl_certificate /etc/letsencrypt/live/api.distropro.in/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/api.distropro.in/privkey.pem;
+  include /etc/letsencrypt/options-ssl-nginx.conf;
+  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+  location / {
+    proxy_pass http://127.0.0.1:4000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+  }
+}
+EOF
+sudo nginx -t
+sudo systemctl reload nginx
+sudo certbot --nginx --noninteractive --agree-tos --email admin@distropro.in -d api.distropro.in --redirect
+sudo systemctl enable --now certbot.timer || true
+sudo certbot renew --dry-run
+```
+
+### Step 3: Keep backend Docker running on localhost:4000
+Make sure the Docker backend stays running exactly as before.
+The Nginx proxy will forward external HTTPS traffic to the internal API container.
+
+```bash
 docker stop distro-api
 docker rm distro-api
-
-# Start new container with updated code and .env
 docker run -d \
   --name distro-api \
   --restart unless-stopped \
@@ -61,30 +106,28 @@ docker run -d \
   --log-opt max-size=50m \
   --log-opt max-file=3 \
   distro-api:latest
-
-# Check logs
-docker logs -f distro-api
 ```
 
-### Step 4: Verify Backend is Running
+### Step 4: Update backend CORS_ORIGINS and Vercel settings
+In the backend `.env` file, set CORS_ORIGINS to the actual frontend origin(s), not the API domain.
+
 ```bash
-# Test health endpoint
-curl http://localhost:4000/health
-
-# Should return:
-# {"status":"ok","service":"api","timestamp":"2024-..."}
+CORS_ORIGINS="https://distropro.in"
+# or if needed:
+# CORS_ORIGINS="https://distropro.in,https://www.distropro.in"
 ```
 
-### Step 5: Test Login Flow from Vercel
-1. Navigate to your Vercel-deployed frontend
-2. Try logging in with credentials:
-   - **PLATFORM_ADMIN**: `platform@distropro.in` / `password123`
-   - **OWNER**: `owner@nathsales.com` / `password123` 
-3. Check browser DevTools Network tab:
-   - POST request to `/api/v1/auth/login` should return **200 OK**
-   - Should NOT see "Provisional headers" warning
-   - Response should include `{ accessToken, refreshToken, user }`
-4. Should redirect to appropriate dashboard (PLATFORM_ADMIN → /admin, OWNER → /owner)
+In the Vercel project environment variables, update:
+
+- `NEXT_PUBLIC_API_URL=https://api.distropro.in/api/v1`
+- `NEXT_PUBLIC_SOCKET_URL=https://api.distropro.in`
+
+### Step 5: Verify login/auth from Vercel
+1. Confirm `https://api.distropro.in` resolves to your EC2 public IP.
+2. Confirm `nginx -t` passes and `sudo systemctl status nginx` is active.
+3. Confirm `curl -I https://api.distropro.in/api/v1/health` returns `200`.
+4. Confirm the browser sees `https://api.distropro.in/api/v1/auth/login` and not HTTP.
+5. Confirm login from Vercel returns `200 OK` with `accessToken` and `refreshToken`.
 
 ## Automated Deployment Option
 If you want to redo the entire AWS setup with the CORS fix included:
