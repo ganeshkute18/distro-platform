@@ -16,12 +16,14 @@ const ROLE_ICONS: Record<Role, React.ReactNode> = {
   OWNER: <Shield className="h-4 w-4 text-purple-500" />,
   STAFF: <UserCheck className="h-4 w-4 text-blue-500" />,
   CUSTOMER: <Store className="h-4 w-4 text-green-500" />,
+  PLATFORM_ADMIN: <Shield className="h-4 w-4 text-slate-500" />,
 };
 
 const ROLE_COLORS: Record<Role, string> = {
   OWNER: 'bg-purple-100 text-purple-700',
   STAFF: 'bg-blue-100 text-blue-700',
   CUSTOMER: 'bg-green-100 text-green-700',
+  PLATFORM_ADMIN: 'bg-slate-100 text-slate-700',
 };
 
 export default function OwnerUsersPage() {

@@ -1,4 +1,4 @@
-export type Role = 'OWNER' | 'STAFF' | 'CUSTOMER';
+export type Role = 'OWNER' | 'STAFF' | 'CUSTOMER' | 'PLATFORM_ADMIN';
 
 export type OrderStatus =
   | 'PENDING_APPROVAL'

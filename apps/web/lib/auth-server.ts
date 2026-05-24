@@ -1,10 +1,12 @@
 import { cookies } from 'next/headers';
 
+import { Role } from '../types';
+
 export interface Session {
   id: string;
   email: string;
   name: string;
-  role: 'OWNER' | 'STAFF' | 'CUSTOMER';
+  role: Role;
   businessName?: string;
 }
 

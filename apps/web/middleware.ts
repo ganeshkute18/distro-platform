@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const ROLE_ROUTES: Record<string, string[]> = {
-  OWNER:    ['/owner'],
-  STAFF:    ['/staff'],
-  CUSTOMER: ['/catalog', '/cart', '/orders', '/profile'],
+  OWNER:         ['/owner'],
+  STAFF:         ['/staff'],
+  CUSTOMER:      ['/catalog', '/cart', '/orders', '/profile'],
+  PLATFORM_ADMIN:['/admin'],
 };
 
 const PUBLIC_ROUTES = ['/login', '/logout', '/unauthorized', '/onboard'];

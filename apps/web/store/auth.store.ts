@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { Role } from '../types';
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: 'OWNER' | 'STAFF' | 'CUSTOMER';
+  role: Role;
   businessName?: string;
   tenantId?: string;
 }

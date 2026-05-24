@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth.store';
+import type { Role } from '../types';
 
 /**
  * Root page — redirects to the correct dashboard based on logged-in role.
@@ -17,12 +18,13 @@ export default function RootPage() {
       router.replace('/login');
       return;
     }
-    const redirectMap: Record<string, string> = {
+    const redirectMap: Record<Role, string> = {
       OWNER: '/owner/dashboard',
       STAFF: '/staff/orders',
       CUSTOMER: '/catalog',
+      PLATFORM_ADMIN: '/admin/dashboard',
     };
-    router.replace(redirectMap[user.role] ?? '/login');
+    router.replace(redirectMap[user.role] ?? '/unauthorized');
   }, [user, router]);
 
   return null;

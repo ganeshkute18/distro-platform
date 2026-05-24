@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Loader2, Package, UserPlus, LogIn, Mail, Phone, HelpCircle } from 'lucide-react';
 import { api } from '../../../lib/api-client';
 import { useAuthStore } from '../../../store/auth.store';
+import type { Role } from '../../../types';
 import toast from 'react-hot-toast';
 
 const schema = z.object({
@@ -82,9 +83,14 @@ export default function LoginPage() {
     const userJson = localStorage.getItem('sessionUser');
     if (!token || !userJson || !sessionExpiresAt || Date.now() > sessionExpiresAt) return;
     try {
-      const user = JSON.parse(userJson) as { role: 'OWNER' | 'STAFF' | 'CUSTOMER' };
-      const redirectMap = { OWNER: '/owner/dashboard', STAFF: '/staff/orders', CUSTOMER: '/catalog' };
-      router.replace(redirectMap[user.role]);
+      const user = JSON.parse(userJson) as { role: Role };
+      const redirectMap: Record<Role, string> = {
+        OWNER: '/owner/dashboard',
+        STAFF: '/staff/orders',
+        CUSTOMER: '/catalog',
+        PLATFORM_ADMIN: '/admin/dashboard',
+      };
+      router.replace(redirectMap[user.role] ?? '/unauthorized');
     } catch {
       // ignore bad session payload
     }
@@ -102,7 +108,7 @@ export default function LoginPage() {
       const res = await api.post<{
         accessToken: string;
         refreshToken: string;
-        user: { id: string; email: string; name: string; role: 'OWNER' | 'STAFF' | 'CUSTOMER'; businessName?: string };
+        user: { id: string; email: string; name: string; role: Role; businessName?: string };
       }>('/auth/login', data);
 
       localStorage.setItem('accessToken', res.accessToken);
@@ -111,8 +117,19 @@ export default function LoginPage() {
       localStorage.setItem('sessionExpiresAt', String(Date.now() + 48 * 60 * 60 * 1000));
       setAuth(res.user, res.accessToken);
 
-      const redirectMap = { OWNER: '/owner/dashboard', STAFF: '/staff/orders', CUSTOMER: '/catalog' };
-      router.push(redirectMap[res.user.role]);
+      const redirectMap: Record<Role, string> = {
+        OWNER: '/owner/dashboard',
+        STAFF: '/staff/orders',
+        CUSTOMER: '/catalog',
+        PLATFORM_ADMIN: '/admin/dashboard',
+      };
+      const destination = redirectMap[res.user.role];
+      if (!destination) {
+        toast.error('Unsupported user role. Contact support.');
+        router.push('/unauthorized');
+        return;
+      }
+      router.push(destination);
     } catch (err: unknown) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast.error(message || 'Invalid credentials');
