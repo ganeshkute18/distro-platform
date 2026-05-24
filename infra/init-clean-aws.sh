@@ -32,6 +32,8 @@
 #   RDS_PASS        RDS master password
 #   RDS_DB          Database name (default: distro_platform)
 #   API_BASE        Full API base URL  e.g. http://<EC2_IP>:4000/api/v1
+#   CORS_ORIGINS    Frontend origin(s) - comma-separated, or Vercel domain(s)
+#                   e.g. 'https://myapp.vercel.app,http://localhost:3000'
 # ═══════════════════════════════════════════════════════════════════════════
 
 set -euo pipefail

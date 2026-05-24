@@ -31,7 +31,14 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   // Render.com injects $PORT — use that first, then API_PORT, then 4000
   const port = process.env.PORT || configService.get<number>('API_PORT', 4000);
-  const corsOrigins = configService.get<string>('CORS_ORIGINS', 'http://localhost:3000');
+  
+  // Parse CORS_ORIGINS: comma-separated list or default to localhost for dev
+  // Examples: 'http://localhost:3000,https://example.vercel.app' or '*'
+  const corsOriginConfig = configService.get<string>(
+    'CORS_ORIGINS',
+    'http://localhost:3000,http://localhost:3001',
+  );
+  const corsOrigins = corsOriginConfig === '*' ? '*' : corsOriginConfig.split(',').map(o => o.trim());
 
   // Explicit platform-level healthcheck path (not behind API version prefix).
   app.use('/health', (_req: Request, res: Response) => {
@@ -45,11 +52,15 @@ async function bootstrap() {
   // Middleware
   app.use(cookieParser());
 
-  // CORS
+  // CORS — permissive defaults for local/staging, restrict for production
   app.enableCors({
-    origin: corsOrigins.split(','),
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Tenant-Slug', 'Accept'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Number'],
+    preflightContinue: false,
+    optionsSuccessStatus: 200,
   });
 
   // Global prefix
