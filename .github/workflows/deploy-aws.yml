@@ -26,19 +26,40 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script_stop: true
           script: |
-            cd /home/ec2-user/app
+            set -euo pipefail
 
-            # Pull latest code
-            if [ -d "distro-platform" ]; then
-              cd distro-platform
-              git pull origin main
+            APP_ROOT="/home/ec2-user/app"
+            REPO_DIR="${APP_ROOT}/distro-platform"
+            REPO_URL="https://github.com/ganeshkute18/distro-platform.git"
+
+            # Persistent env lives outside the repo (never touched by git clean)
+            if [ -f "${APP_ROOT}/.env" ]; then
+              ENV_FILE="${APP_ROOT}/.env"
+            elif [ -f "/home/ec2-user/.env" ]; then
+              ENV_FILE="/home/ec2-user/.env"
             else
-              git clone https://github.com/ganeshkute18/distro-platform.git
-              cd distro-platform
+              echo "❌ Missing env file: ${APP_ROOT}/.env or /home/ec2-user/.env"
+              exit 1
             fi
 
-            # Copy env
-            cp /home/ec2-user/app/.env apps/api/.env
+            mkdir -p "${APP_ROOT}"
+
+            # Deployment-safe sync: EC2 must mirror GitHub main exactly
+            if [ -d "${REPO_DIR}/.git" ]; then
+              cd "${REPO_DIR}"
+              git fetch origin main
+              git reset --hard origin/main
+              git clean -fd
+            else
+              rm -rf "${REPO_DIR}"
+              git clone --branch main --single-branch "${REPO_URL}" "${REPO_DIR}"
+              cd "${REPO_DIR}"
+            fi
+
+            echo "Deployed commit: $(git rev-parse --short HEAD)"
+
+            # Inject runtime config after clean sync (apps/api/.env is gitignored)
+            cp "${ENV_FILE}" apps/api/.env
 
             # Build and deploy
             docker build --target production -f apps/api/Dockerfile -t distro-api:latest .
