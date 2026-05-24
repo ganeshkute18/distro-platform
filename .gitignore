@@ -2,6 +2,7 @@ node_modules
 .env
 .env.local
 .env.*.local
+.env.aws
 apps/api/.env
 apps/web/.env
 dist
@@ -15,3 +16,4 @@ prisma/migrations/dev.db
 
 # Temporary dev scripts — never commit
 apps/api/prisma/fix-users.ts
+infra/test-prisma-product.js
