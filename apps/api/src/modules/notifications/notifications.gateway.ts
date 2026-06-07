@@ -11,8 +11,47 @@ import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
 
+// Helper function to check if origin matches allowed patterns (supports wildcards)
+function isOriginAllowed(origin: string, allowedPatterns: string[]): boolean {
+  if (allowedPatterns.includes('*')) return true;
+  
+  return allowedPatterns.some(pattern => {
+    if (pattern === origin) return true;
+    
+    // Support wildcard patterns like 'https://*.vercel.app'
+    if (pattern.includes('*')) {
+      const regexPattern = pattern
+        .replace(/\./g, '\\.')
+        .replace(/\*/g, '[^/]+');
+      return new RegExp(`^${regexPattern}$`).test(origin);
+    }
+    
+    return false;
+  });
+}
+
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: {
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile or curl requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Get allowed origins from environment
+      // This will be set by the NotificationsGateway constructor
+      const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:3000', 'http://localhost:3001'];
+      
+      if (isOriginAllowed(origin, allowedOrigins)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`WebSocket CORS: Origin "${origin}" not allowed`));
+      }
+    },
+    credentials: true,
+  },
   namespace: '/',
 })
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {

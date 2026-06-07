@@ -32,13 +32,37 @@ async function bootstrap() {
   // Render.com injects $PORT — use that first, then API_PORT, then 4000
   const port = process.env.PORT || configService.get<number>('API_PORT', 4000);
   
-  // Parse CORS_ORIGINS: comma-separated list or default to localhost for dev
-  // Examples: 'http://localhost:3000,https://example.vercel.app' or '*'
+  // Parse CORS_ORIGINS: comma-separated list with wildcard support
+  // Examples:
+  //   'http://localhost:3000,https://example.vercel.app' (exact matches)
+  //   'http://localhost:3000,https://*.vercel.app' (with wildcards)
+  //   '*' (allow all - dev only)
+  // For Railway production, set: CORS_ORIGINS="https://distro-platform-web.vercel.app,https://*.vercel.app"
   const corsOriginConfig = configService.get<string>(
     'CORS_ORIGINS',
     'http://localhost:3000,http://localhost:3001',
   );
-  const corsOrigins = corsOriginConfig === '*' ? '*' : corsOriginConfig.split(',').map(o => o.trim());
+
+  // Function to check if origin matches allowed patterns (supports wildcards)
+  function isOriginAllowed(origin: string, allowedPatterns: string[]): boolean {
+    if (allowedPatterns.includes('*')) return true;
+    
+    return allowedPatterns.some(pattern => {
+      if (pattern === origin) return true;
+      
+      // Support wildcard patterns like 'https://*.vercel.app'
+      if (pattern.includes('*')) {
+        const regexPattern = pattern
+          .replace(/\./g, '\\.')
+          .replace(/\*/g, '[^/]+');
+        return new RegExp(`^${regexPattern}$`).test(origin);
+      }
+      
+      return false;
+    });
+  }
+
+  const allowedOrigins = corsOriginConfig === '*' ? ['*'] : corsOriginConfig.split(',').map(o => o.trim());
 
   // Explicit platform-level healthcheck path (not behind API version prefix).
   app.use('/health', (_req: Request, res: Response) => {
@@ -52,9 +76,25 @@ async function bootstrap() {
   // Middleware
   app.use(cookieParser());
 
-  // CORS — permissive defaults for local/staging, restrict for production
+  // CORS configuration — permissive defaults for local/staging, restrict for production
+  // Log allowed origins for debugging
+  console.log('✅ CORS Configuration:');
+  console.log(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+  console.log(`   Credentials: true`);
+  
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile or curl requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      if (isOriginAllowed(origin, allowedOrigins)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: Origin "${origin}" not allowed`), false);
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Tenant-Slug', 'Accept'],
