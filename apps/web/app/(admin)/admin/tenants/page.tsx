@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../../../../lib/api-client';
+import type { PaginatedResponse } from '../../../../types';
 
 interface TenantSummary {
   id: string;
@@ -18,8 +19,9 @@ export default function AdminTenantsPage() {
   useEffect(() => {
     async function loadTenants() {
       try {
-        const response = await api.get<TenantSummary[]>('/tenants');
-        setTenants(response);
+        const response = await api.get<PaginatedResponse<TenantSummary>>('/tenants');
+        const tenantsList = Array.isArray(response?.data) ? response.data : [];
+        setTenants(tenantsList);
       } catch (err) {
         setError('Failed to load tenants.');
       }

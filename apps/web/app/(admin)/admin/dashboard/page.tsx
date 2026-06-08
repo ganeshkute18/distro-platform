@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../../lib/api-client';
 import { useAuthStore } from '../../../../store/auth.store';
+import type { PaginatedResponse } from '../../../../types';
 
 interface TenantSummary {
   id: string;
@@ -21,10 +22,11 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function loadTenants() {
       try {
-        const tenants = await api.get<TenantSummary[]>('/tenants');
-        setTenantCount(tenants.length);
-        if (tenants.length > 0) {
-          setLastTenant(tenants[0]);
+        const response = await api.get<PaginatedResponse<TenantSummary>>('/tenants');
+        const tenantsList = Array.isArray(response?.data) ? response.data : [];
+        setTenantCount(tenantsList.length);
+        if (tenantsList.length > 0) {
+          setLastTenant(tenantsList[0]);
         }
       } catch (err) {
         setError('Unable to load tenant summary.');
