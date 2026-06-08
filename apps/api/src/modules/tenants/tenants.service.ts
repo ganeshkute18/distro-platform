@@ -225,4 +225,38 @@ export class TenantsService {
       where: { tenantId_userId: { tenantId, userId } },
     });
   }
+
+  /**
+   * Remove a tenant entirely. Prevent deletion if tenant has linked products/orders/customers.
+   */
+  async remove(id: string, performedBy: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+
+    const [productCount, orderCount, customerCount] = await Promise.all([
+      this.prisma.product.count({ where: { tenantId: id } }),
+      this.prisma.order.count({ where: { tenantId: id } }),
+      this.prisma.customer.count({ where: { tenantId: id } }),
+    ]);
+
+    if (productCount > 0 || orderCount > 0 || customerCount > 0) {
+      throw new BadRequestException('Tenant has associated data and cannot be deleted');
+    }
+
+    // remove tenant users and settings first to keep referential integrity
+    await this.prisma.tenantUser.deleteMany({ where: { tenantId: id } });
+    await this.prisma.appSetting.deleteMany({ where: { tenantId: id } });
+
+    const deleted = await this.prisma.tenant.delete({ where: { id } });
+
+    await this.audit.log({
+      userId: performedBy,
+      action: AuditAction.TENANT_DELETED,
+      entity: 'Tenant',
+      entityId: id,
+      before: tenant as never,
+    });
+
+    return deleted;
+  }
 }

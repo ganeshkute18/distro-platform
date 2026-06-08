@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, Query,
+  Controller, Get, Post, Patch, Body, Param, Query, Delete,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantsService } from './tenants.service';
@@ -75,6 +75,15 @@ export class TenantsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTenantDto, @CurrentUser() user: User) {
     return this.service.update(id, dto, user.id);
+  }
+
+  /**
+   * Delete a tenant (PLATFORM_ADMIN only).
+   */
+  @Roles(Role.PLATFORM_ADMIN)
+  @Delete(':id')
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.service.remove(id, user.id);
   }
 
   /**
