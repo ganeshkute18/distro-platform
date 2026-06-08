@@ -22,6 +22,14 @@ export default function AdminTenantEditPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [plan, setPlan] = useState<'STARTER'|'PROFESSIONAL'|'ENTERPRISE'>('STARTER');
+  const [tenantUsers, setTenantUsers] = useState<any[]>([]);
+
+  // owner-link UI state
+  const [searchEmail, setSearchEmail] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addRole, setAddRole] = useState<'OWNER'|'STAFF'|'CUSTOMER'>('OWNER');
 
   useEffect(() => {
     if (!tenantId) return;
@@ -37,6 +45,7 @@ export default function AdminTenantEditPage() {
         setContactPhone(data.contactPhone || '');
         setIsActive(Boolean(data.isActive));
         if (data.plan) setPlan(data.plan);
+        setTenantUsers(data.tenantUsers || []);
       } catch (e) {
         setError('Failed to load tenant.');
       } finally {
@@ -124,6 +133,101 @@ export default function AdminTenantEditPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={isSubmitting} className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50">{isSubmitting ? 'Saving...' : 'Save changes'}</button>
           <Link href="/admin/tenants" className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-input bg-background px-5 py-2 text-sm font-semibold text-foreground transition hover:bg-muted">Cancel</Link>
+        </div>
+
+        <div className="mt-6 rounded-3xl border bg-background p-4">
+          <p className="text-sm font-semibold text-foreground">Tenant users</p>
+          <div className="mt-3 space-y-3">
+            {tenantUsers.length === 0 && <p className="text-sm text-muted-foreground">No users assigned to this tenant.</p>}
+            {tenantUsers.map((tu) => (
+              <div key={tu.user.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">{tu.user.name} • {tu.user.email}</p>
+                  <p className="text-xs text-muted-foreground">Role: {tu.role}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Remove ${tu.user.email} from this tenant?`)) return;
+                      try {
+                        await api.delete(`/tenants/${tenantId}/users/${tu.user.id}`);
+                        setTenantUsers((prev) => prev.filter((x) => x.user.id !== tu.user.id));
+                      } catch (e) {
+                        alert('Failed to remove user from tenant.');
+                      }
+                    }}
+                    className="rounded-md border px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 border-t pt-4">
+            <p className="text-sm font-medium">Add user to tenant</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <input value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Search by email" className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary" />
+              <select value={addRole} onChange={(e) => setAddRole(e.target.value as any)} className="rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary">
+                <option value="OWNER">OWNER</option>
+                <option value="STAFF">STAFF</option>
+                <option value="CUSTOMER">CUSTOMER</option>
+              </select>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSearching(true);
+                    try {
+                      const res = await api.get<any>(`/users?limit=50`);
+                      const matches = (Array.isArray(res?.data) ? res.data : res).filter((u: any) => (u.email || '').toLowerCase().includes(searchEmail.toLowerCase()));
+                      setSearchResults(matches);
+                      if (matches.length === 1) setSelectedUserId(matches[0].id);
+                    } catch (e) {
+                      setSearchResults([]);
+                      alert('Failed to search users');
+                    } finally { setSearching(false); }
+                  }}
+                  className="rounded-md bg-primary px-3 py-1 text-sm text-primary-foreground"
+                >
+                  {searching ? 'Searching...' : 'Search'}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!selectedUserId) { alert('Select a user from search results first'); return; }
+                    try {
+                      await api.post(`/tenants/${tenantId}/users/${selectedUserId}`, { role: addRole });
+                      // refresh tenant users
+                      const updated = await api.get<any>(`/tenants/${tenantId}`);
+                      setTenantUsers(updated.tenantUsers || []);
+                      setSearchEmail(''); setSearchResults([]); setSelectedUserId(null);
+                    } catch (e) {
+                      alert('Failed to add user to tenant');
+                    }
+                  }}
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-muted"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {searchResults.map((u) => (
+                  <div key={u.id} className={`flex items-center justify-between rounded-md border p-2 ${selectedUserId === u.id ? 'bg-muted' : ''}`}>
+                    <div>
+                      <p className="font-medium">{u.name}</p>
+                      <p className="text-xs text-muted-foreground">{u.email}</p>
+                    </div>
+                    <button type="button" onClick={() => setSelectedUserId(u.id)} className="rounded-md border px-2 py-1 text-sm">Select</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </form>
     </div>
