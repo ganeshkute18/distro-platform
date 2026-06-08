@@ -1,0 +1,50 @@
+# ── Dependencies ─────────────────────────────────────────────────────────────
+# Reinstalled inside Docker via npm ci; excluding saves hundreds of MB from
+# the build context sent to the Docker daemon.
+node_modules
+**/node_modules
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+# Rebuilt inside Docker; stale local outputs can pollute the image.
+dist
+**/dist
+.next
+**/.next
+build
+**/build
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+# Never bake env files into the image; Railway injects vars at runtime.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git
+.gitignore
+.github
+
+# ── Turbo / cache ─────────────────────────────────────────────────────────────
+.turbo
+**/.turbo
+
+# ── Test / coverage ───────────────────────────────────────────────────────────
+coverage
+**/coverage
+*.test.ts
+*.spec.ts
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+**/*.log
+npm-debug.log*
+
+# ── OS / IDE artefacts ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode
+
+# ── Docs (not needed inside the image) ───────────────────────────────────────
+*.md
+!README.md
