@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api } from '../../../../../../lib/api-client';
-import { PageHeader } from '../../../../../../components/shared';
+import { api } from '../../../../../lib/api-client';
+import { PageHeader } from '../../../../../components/shared';
 
 type TenantPlan = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 
