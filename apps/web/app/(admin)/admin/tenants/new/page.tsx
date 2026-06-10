@@ -11,7 +11,6 @@ type TenantPlan = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
 interface CreateTenantDto {
   name: string;
   slug: string;
-  isActive: boolean;
   domain?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -49,7 +48,6 @@ export default function AdminTenantCreatePage() {
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [plan, setPlan] = useState<TenantPlan>('STARTER');
-  const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,7 +79,6 @@ export default function AdminTenantCreatePage() {
     const payload: CreateTenantDto = {
       name: name.trim(),
       slug: slug.trim(),
-      isActive,
       domain: domain.trim() || undefined,
       contactEmail: contactEmail.trim() || undefined,
       contactPhone: contactPhone.trim() || undefined,
@@ -192,19 +189,6 @@ export default function AdminTenantCreatePage() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
-              <input
-                id="isActive"
-                type="checkbox"
-                checked={isActive}
-                onChange={(event) => setIsActive(event.target.checked)}
-                className="h-4 w-4 rounded border-input text-primary focus:ring-primary"
-              />
-              <label htmlFor="isActive" className="text-sm font-medium text-foreground">
-                Activate tenant immediately
-              </label>
             </div>
 
             <div>
