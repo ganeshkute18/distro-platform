@@ -99,4 +99,11 @@ export class TenantsController {
   ) {
     return this.service.addUser(tenantId, userId, role, user.id);
   }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Delete(':id/users/:userId')
+  removeUser(@Param('id') tenantId: string, @Param('userId') userId: string) {
+    return this.service.removeUser(tenantId, userId);
+  }
 }
+

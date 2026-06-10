@@ -23,9 +23,8 @@ export default function AdminTenantsPage() {
   useEffect(() => {
     async function loadTenants() {
       try {
-        const response = await api.get<PaginatedResponse<TenantSummary>>('/tenants');
-        const tenantsList = Array.isArray(response?.data) ? response.data : [];
-        setTenants(tenantsList);
+        const result = await api.get<PaginatedResponse<TenantSummary>>('/tenants');
+        setTenants(result.data || []);
       } catch (err) {
         setError('Failed to load tenants.');
       }

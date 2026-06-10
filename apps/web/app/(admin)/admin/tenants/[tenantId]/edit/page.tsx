@@ -180,8 +180,8 @@ export default function AdminTenantEditPage() {
                   onClick={async () => {
                     setSearching(true);
                     try {
-                      const res = await api.get<any>(`/users?limit=50`);
-                      const matches = (Array.isArray(res?.data) ? res.data : res).filter((u: any) => (u.email || '').toLowerCase().includes(searchEmail.toLowerCase()));
+                      const users = await api.get<any>(`/users?limit=50`);
+                      const matches = (Array.isArray(users) ? users : users?.data || []).filter((u: any) => (u.email || '').toLowerCase().includes(searchEmail.toLowerCase()));
                       setSearchResults(matches);
                       if (matches.length === 1) setSelectedUserId(matches[0].id);
                     } catch (e) {
