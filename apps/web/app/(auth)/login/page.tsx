@@ -279,7 +279,7 @@ export default function LoginPage() {
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* MODE TABS */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+        <div className="mb-6 grid grid-cols-1 gap-2 rounded-xl bg-muted p-1">
           <button
             type="button"
             onClick={() => setMode('signin')}
@@ -289,16 +289,6 @@ export default function LoginPage() {
           >
             <LogIn className="h-4 w-4" />
             Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('signup')}
-            className={`flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all ${
-              mode === 'signup' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <UserPlus className="h-4 w-4" />
-            Sign Up
           </button>
         </div>
 

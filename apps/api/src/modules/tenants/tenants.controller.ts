@@ -3,7 +3,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantsService } from './tenants.service';
-import { CreateTenantDto, UpdateTenantDto, OnboardTenantDto } from './dto/tenant.dto';
+import { CreateTenantDto, UpdateTenantDto, OnboardTenantDto, ResetTenantUserPasswordDto } from './dto/tenant.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Role, User } from '@prisma/client';
@@ -20,8 +20,8 @@ export class TenantsController {
    */
   @Roles(Role.PLATFORM_ADMIN)
   @Post('onboard')
-  onboard(@Body() dto: OnboardTenantDto) {
-    return this.service.onboard(dto);
+  onboard(@Body() dto: OnboardTenantDto, @CurrentUser() user: User) {
+    return this.service.onboard(dto, user.id);
   }
 
   /**
@@ -64,8 +64,8 @@ export class TenantsController {
    */
   @Roles(Role.PLATFORM_ADMIN, Role.OWNER)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.service.findOneForUser(id, user.id, user.role);
   }
 
   /**
@@ -101,9 +101,43 @@ export class TenantsController {
   }
 
   @Roles(Role.PLATFORM_ADMIN)
+  @Get(':id/available-users')
+  findAvailableUsers(@Param('id') tenantId: string, @Query('email') email?: string) {
+    return this.service.findAvailableUsers(tenantId, email);
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
   @Delete(':id/users/:userId')
   removeUser(@Param('id') tenantId: string, @Param('userId') userId: string) {
     return this.service.removeUser(tenantId, userId);
   }
-}
 
+  @Roles(Role.PLATFORM_ADMIN)
+  @Post(':id/users/:userId/reset-password')
+  resetUserPassword(
+    @Param('id') tenantId: string,
+    @Param('userId') userId: string,
+    @Body() dto: ResetTenantUserPasswordDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.service.resetUserPassword(tenantId, userId, dto.password, user.id);
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Post(':id/users/:userId/suspend')
+  suspendUser(@Param('id') tenantId: string, @Param('userId') userId: string, @CurrentUser() user: User) {
+    return this.service.setUserActive(tenantId, userId, false, user.id);
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Post(':id/users/:userId/activate')
+  activateUser(@Param('id') tenantId: string, @Param('userId') userId: string, @CurrentUser() user: User) {
+    return this.service.setUserActive(tenantId, userId, true, user.id);
+  }
+
+  @Roles(Role.PLATFORM_ADMIN)
+  @Post(':id/transfer-ownership/:userId')
+  transferOwnership(@Param('id') tenantId: string, @Param('userId') userId: string, @CurrentUser() user: User) {
+    return this.service.transferOwnership(tenantId, userId, user.id);
+  }
+}

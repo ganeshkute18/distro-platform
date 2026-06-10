@@ -48,7 +48,7 @@ export class AuthService {
 
     // Resolve tenant membership
     const tenantMemberships = await this.prisma.tenantUser.findMany({
-      where: { userId: user.id, isActive: true },
+      where: { userId: user.id, isActive: true, tenant: { isActive: true } },
       include: { tenant: { select: { id: true, name: true, slug: true, logoUrl: true, plan: true } } },
       orderBy: { createdAt: 'asc' },
     });
@@ -56,8 +56,12 @@ export class AuthService {
     // Use first tenant as default (user can switch later)
     const defaultTenant = tenantMemberships[0] || null;
     const tenantId = defaultTenant?.tenant?.id || null;
+    if (user.role !== Role.PLATFORM_ADMIN && !defaultTenant) {
+      throw new UnauthorizedException('No active tenant membership is available for this account');
+    }
+    const effectiveRole = defaultTenant?.role || user.role;
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantId);
+    const tokens = await this.generateTokens(user.id, user.email, effectiveRole, tenantId);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
     await this.auditService.log({
@@ -77,7 +81,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: effectiveRole,
         businessName: user.businessName,
         tenantId,
       },
@@ -111,11 +115,19 @@ export class AuthService {
 
     // Resolve tenant for refresh
     const tenantMembership = await this.prisma.tenantUser.findFirst({
-      where: { userId: user.id, isActive: true },
-      select: { tenantId: true },
+      where: { userId: user.id, isActive: true, tenant: { isActive: true } },
+      select: { tenantId: true, role: true },
     });
+    if (user.role !== Role.PLATFORM_ADMIN && !tenantMembership) {
+      throw new ForbiddenException('No active tenant membership is available for this account');
+    }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role, tenantMembership?.tenantId);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      tenantMembership?.role || user.role,
+      tenantMembership?.tenantId,
+    );
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
     return tokens;
@@ -218,6 +230,17 @@ export class AuthService {
   // ============================================================================
 
   async signupCustomer(dto: SignupCustomerDto, tenantId?: string) {
+    if (!tenantId) {
+      throw new BadRequestException('Tenant context is required for customer signup');
+    }
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId, isActive: true },
+      select: { id: true },
+    });
+    if (!tenant) {
+      throw new BadRequestException('Tenant is not active or does not exist');
+    }
+
     // Check if email already exists
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
@@ -242,22 +265,18 @@ export class AuthService {
         },
       });
 
-      // If tenantId provided, link customer to tenant
-      if (tenantId) {
-        await tx.tenantUser.create({
-          data: { tenantId, userId: user.id, role: Role.CUSTOMER },
-        });
+      await tx.tenantUser.create({
+        data: { tenantId, userId: user.id, role: Role.CUSTOMER },
+      });
 
-        // Create Customer record with type from DTO or default
-        await tx.customer.create({
-          data: {
-            tenantId,
-            userId: user.id,
-            customerType: (dto as any).customerType || 'RETAILER',
-            isActive: true,
-          },
-        });
-      }
+      await tx.customer.create({
+        data: {
+          tenantId,
+          userId: user.id,
+          customerType: 'RETAILER',
+          isActive: true,
+        },
+      });
 
       return user;
     });
@@ -276,6 +295,17 @@ export class AuthService {
       email: result.email,
       requiresEmailVerification: false,
     };
+  }
+
+  async signupCustomerForTenant(dto: SignupCustomerDto, tenantSlug: string) {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { slug: tenantSlug, isActive: true },
+      select: { id: true },
+    });
+    if (!tenant) {
+      throw new BadRequestException('Tenant is not active or does not exist');
+    }
+    return this.signupCustomer(dto, tenant.id);
   }
 
   async signupStaff(dto: SignupStaffDto) {

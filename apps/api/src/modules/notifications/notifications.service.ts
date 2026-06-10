@@ -21,9 +21,9 @@ export class NotificationsService {
     }
   }
 
-  async create(userId: string, title: string, message: string, type: string, referenceId?: string, tenantId?: string) {
+  async create(userId: string, title: string, message: string, type: string, referenceId: string | undefined, tenantId: string) {
     return this.prisma.notification.create({
-      data: { userId, title, message, type, referenceId, tenantId: tenantId || '' },
+      data: { userId, title, message, type, referenceId, tenantId },
     });
   }
 
@@ -192,6 +192,7 @@ export class NotificationsService {
       `Order #${(order as never as { orderNumber: string }).orderNumber} was rejected. Reason: ${order.rejectionReason || 'Not specified'}`,
       'ORDER_REJECTED',
       order.id,
+      order.tenantId,
     );
 
     // Also send push notification to customer
@@ -212,6 +213,7 @@ export class NotificationsService {
       `Order #${(order as never as { orderNumber: string }).orderNumber} is on its way!`,
       'ORDER_DISPATCHED',
       order.id,
+      order.tenantId,
     );
     await this.sendPushToUsers(
       [order.customerId],
@@ -230,6 +232,7 @@ export class NotificationsService {
       `Order #${(order as never as { orderNumber: string }).orderNumber} has been delivered`,
       'ORDER_DELIVERED',
       order.id,
+      order.tenantId,
     );
 
     // Send push notification
@@ -244,18 +247,18 @@ export class NotificationsService {
   @OnEvent('payment.made')
   async handlePaymentMade(order: Order & { customer?: { name: string } }) {
     // Notify owners of payment received
-    const owners = await this.prisma.user.findMany({
-      where: { role: Role.OWNER, isActive: true },
-      select: { id: true },
+    const owners = await this.prisma.tenantUser.findMany({
+      where: { tenantId: order.tenantId, role: Role.OWNER, isActive: true },
+      select: { userId: true },
     });
 
     const title = '💰 Payment Received';
     const message = `Payment received for Order #${(order as never as { orderNumber: string }).orderNumber}`;
 
-    await Promise.all([...owners.map((o) => this.create(o.id, title, message, 'PAYMENT_RECEIVED', order.id))]);
+    await Promise.all([...owners.map((o) => this.create(o.userId, title, message, 'PAYMENT_RECEIVED', order.id, order.tenantId))]);
 
     // Send push notification to owners
-    await this.sendPushToUsers(owners.map((o) => o.id), title, message, `/owner/orders/${order.id}`);
+    await this.sendPushToUsers(owners.map((o) => o.userId), title, message, `/owner/orders/${order.id}`);
 
     // Also notify customer of payment confirmation
     await this.create(
@@ -264,6 +267,7 @@ export class NotificationsService {
       `Your payment for Order #${(order as never as { orderNumber: string }).orderNumber} has been received`,
       'PAYMENT_CONFIRMED',
       order.id,
+      order.tenantId,
     );
 
     await this.sendPushToUsers(
@@ -278,21 +282,21 @@ export class NotificationsService {
   async handleLowStock(payload: { productId: string; available: number; threshold: number }) {
     const product = await this.prisma.product.findUnique({
       where: { id: payload.productId },
-      select: { name: true, sku: true },
+      select: { name: true, sku: true, tenantId: true },
     });
     if (!product) return;
 
-    const owners = await this.prisma.user.findMany({
-      where: { role: Role.OWNER, isActive: true },
-      select: { id: true },
+    const owners = await this.prisma.tenantUser.findMany({
+      where: { tenantId: product.tenantId, role: Role.OWNER, isActive: true },
+      select: { userId: true },
     });
 
     const title = '⚠️ Low Stock Alert';
     const message = `${product.name} (${product.sku}) is running low. Available: ${payload.available}`;
 
-    await Promise.all([...owners.map((o) => this.create(o.id, title, message, 'LOW_STOCK', payload.productId))]);
+    await Promise.all([...owners.map((o) => this.create(o.userId, title, message, 'LOW_STOCK', payload.productId, product.tenantId))]);
 
     // Send push notification to owners
-    await this.sendPushToUsers(owners.map((o) => o.id), title, message, `/owner/inventory`);
+    await this.sendPushToUsers(owners.map((o) => o.userId), title, message, `/owner/inventory`);
   }
 }

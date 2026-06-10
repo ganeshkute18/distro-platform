@@ -20,30 +20,35 @@ export class UsersService {
     private auditService: AuditService,
   ) {}
 
-  async create(dto: CreateUserDto, createdById: string) {
+  async create(dto: CreateUserDto, createdById: string, tenantId: string) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already in use');
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        passwordHash,
-        role: dto.role ?? Role.CUSTOMER,
-        phone: dto.phone,
-        businessName: dto.businessName,
-        address: dto.address,
-        isActive: true,
-        // If the Owner is creating the account, treat it as "admin-provisioned":
-        // - no email verification loop
-        // - no separate approval loop
-        emailVerified: true,
-        approvalStatus: ApprovalStatus.APPROVED,
-        approvedBy: createdById,
-        approvedAt: new Date(),
-      },
-      select: USER_SELECT,
+    const role = dto.role === Role.STAFF ? Role.STAFF : Role.CUSTOMER;
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name,
+          passwordHash,
+          role,
+          phone: dto.phone,
+          businessName: dto.businessName,
+          address: dto.address,
+          isActive: true,
+          emailVerified: true,
+          approvalStatus: ApprovalStatus.APPROVED,
+          approvedBy: createdById,
+          approvedAt: new Date(),
+        },
+        select: USER_SELECT,
+      });
+      await tx.tenantUser.create({ data: { tenantId, userId: created.id, role } });
+      if (role === Role.CUSTOMER) {
+        await tx.customer.create({ data: { tenantId, userId: created.id } });
+      }
+      return created;
     });
 
     await this.auditService.log({
@@ -52,15 +57,16 @@ export class UsersService {
       entity: 'User',
       entityId: user.id,
       after: user as Record<string, unknown>,
+      tenantId,
     });
 
     return user;
   }
 
-  async findAll(page = 1, limit = 20, role?: Role, includeInactive = false) {
+  async findAll(tenantId: string, page = 1, limit = 20, role?: Role, includeInactive = false) {
     const skip = (page - 1) * limit;
-    const where: Record<string, unknown> = {};
-    if (role) where.role = role;
+    const where: Record<string, unknown> = { tenantUsers: { some: { tenantId, isActive: true } } };
+    if (role) where.tenantUsers = { some: { tenantId, isActive: true, role } };
     if (!includeInactive) where.isActive = true;
 
     const [data, total] = await Promise.all([
@@ -81,15 +87,24 @@ export class UsersService {
     return user;
   }
 
-  async getSupportContacts() {
+  async findOneForTenant(id: string, tenantId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, tenantUsers: { some: { tenantId, isActive: true } } },
+      select: USER_SELECT,
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  async getSupportContacts(tenantId: string) {
     const owner = await this.prisma.user.findFirst({
-      where: { role: Role.OWNER, isActive: true },
+      where: { isActive: true, tenantUsers: { some: { tenantId, role: Role.OWNER, isActive: true } } },
       select: { id: true, name: true, email: true, phone: true },
       orderBy: { createdAt: 'asc' },
     });
 
     const staff = await this.prisma.user.findMany({
-      where: { role: Role.STAFF, isActive: true },
+      where: { isActive: true, tenantUsers: { some: { tenantId, role: Role.STAFF, isActive: true } } },
       select: { id: true, name: true, email: true, phone: true },
       orderBy: { name: 'asc' },
     });
@@ -97,8 +112,8 @@ export class UsersService {
     return { owner, staff };
   }
 
-  async update(id: string, dto: UpdateUserDto, updatedById: string) {
-    const user = await this.findOne(id);
+  async update(id: string, dto: UpdateUserDto, updatedById: string, tenantId: string) {
+    const user = await this.findOneForTenant(id, tenantId);
     const updated = await this.prisma.user.update({
       where: { id },
       data: dto,
@@ -112,6 +127,7 @@ export class UsersService {
       entityId: id,
       before: user as Record<string, unknown>,
       after: updated as Record<string, unknown>,
+      tenantId,
     });
 
     return updated;
@@ -131,8 +147,9 @@ export class UsersService {
     });
   }
 
-  async deactivate(id: string, deactivatedById: string) {
+  async deactivate(id: string, deactivatedById: string, tenantId: string) {
     if (id === deactivatedById) throw new ForbiddenException('Cannot deactivate yourself');
+    await this.findOneForTenant(id, tenantId);
     const updated = await this.prisma.user.update({
       where: { id },
       data: { isActive: false },
@@ -144,6 +161,7 @@ export class UsersService {
       action: AuditAction.USER_DEACTIVATED,
       entity: 'User',
       entityId: id,
+      tenantId,
     });
 
     return updated;
@@ -188,7 +206,8 @@ export class UsersService {
     return { success: true };
   }
 
-  async reactivate(id: string, reactivatedById: string) {
+  async reactivate(id: string, reactivatedById: string, tenantId: string) {
+    await this.findOneForTenant(id, tenantId);
     const updated = await this.prisma.user.update({
       where: { id },
       data: { isActive: true },
@@ -200,6 +219,7 @@ export class UsersService {
       action: AuditAction.USER_UPDATED,
       entity: 'User',
       entityId: id,
+      tenantId,
     });
 
     return updated;

@@ -56,6 +56,20 @@ export default function AdminTenantEditPage() {
     return () => { mounted = false; };
   }, [tenantId]);
 
+  const refreshTenantUsers = async () => {
+    const updated = await api.get<any>(`/tenants/${tenantId}`);
+    setTenantUsers(updated.tenantUsers || []);
+  };
+
+  const runUserAction = async (path: string, body?: unknown) => {
+    try {
+      await api.post(path, body);
+      await refreshTenantUsers();
+    } catch (actionError: unknown) {
+      alert((actionError as { response?: { data?: { message?: string } } })?.response?.data?.message || 'User action failed.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -143,10 +157,41 @@ export default function AdminTenantEditPage() {
               <div key={tu.user.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-medium">{tu.user.name} • {tu.user.email}</p>
-                  <p className="text-xs text-muted-foreground">Role: {tu.role}</p>
+                  <p className="text-xs text-muted-foreground">Role: {tu.role} / {tu.isActive ? 'Active' : 'Suspended'}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <button
+                    type="button"
+                    onClick={async () => {
+                      const password = prompt(`Set a new password for ${tu.user.email} (minimum 8 characters):`);
+                      if (password) await runUserAction(`/tenants/${tenantId}/users/${tu.user.id}/reset-password`, { password });
+                    }}
+                    className="rounded-md border px-3 py-1 text-sm hover:bg-muted"
+                  >
+                    Reset password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runUserAction(`/tenants/${tenantId}/users/${tu.user.id}/${tu.isActive ? 'suspend' : 'activate'}`)}
+                    className="rounded-md border px-3 py-1 text-sm hover:bg-muted"
+                  >
+                    {tu.isActive ? 'Suspend' : 'Activate'}
+                  </button>
+                  {tu.role !== 'OWNER' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm(`Transfer tenant ownership to ${tu.user.email}?`)) {
+                          await runUserAction(`/tenants/${tenantId}/transfer-ownership/${tu.user.id}`);
+                        }
+                      }}
+                      className="rounded-md border px-3 py-1 text-sm hover:bg-muted"
+                    >
+                      Transfer ownership
+                    </button>
+                  )}
+                  <button
+                    type="button"
                     onClick={async () => {
                       if (!confirm(`Remove ${tu.user.email} from this tenant?`)) return;
                       try {
@@ -180,7 +225,7 @@ export default function AdminTenantEditPage() {
                   onClick={async () => {
                     setSearching(true);
                     try {
-                      const users = await api.get<any>(`/users?limit=50`);
+                      const users = await api.get<any>(`/tenants/${tenantId}/available-users?email=${encodeURIComponent(searchEmail)}`);
                       const matches = (Array.isArray(users) ? users : users?.data || []).filter((u: any) => (u.email || '').toLowerCase().includes(searchEmail.toLowerCase()));
                       setSearchResults(matches);
                       if (matches.length === 1) setSelectedUserId(matches[0].id);
@@ -199,9 +244,7 @@ export default function AdminTenantEditPage() {
                     if (!selectedUserId) { alert('Select a user from search results first'); return; }
                     try {
                       await api.post(`/tenants/${tenantId}/users/${selectedUserId}`, { role: addRole });
-                      // refresh tenant users
-                      const updated = await api.get<any>(`/tenants/${tenantId}`);
-                      setTenantUsers(updated.tenantUsers || []);
+                      await refreshTenantUsers();
                       setSearchEmail(''); setSearchResults([]); setSelectedUserId(null);
                     } catch (e) {
                       alert('Failed to add user to tenant');

@@ -6,26 +6,26 @@ import { UpdateSettingsDto } from './dto/settings.dto';
 export class SettingsService {
   constructor(private prisma: PrismaService) {}
 
-  async getSettings() {
+  async getSettings(tenantId: string) {
     const existing = await (this.prisma as any).appSetting.findFirst({
-      orderBy: { createdAt: 'asc' },
+      where: { tenantId },
     });
     if (existing) return existing;
 
     return (this.prisma as any).appSetting.create({
-      data: { companyName: 'Nath Sales' },
+      data: { companyName: 'Nath Sales', tenantId },
     });
   }
 
-  async updateSettings(dto: UpdateSettingsDto) {
+  async updateSettings(dto: UpdateSettingsDto, tenantId: string) {
     const existing = await (this.prisma as any).appSetting.findFirst({
-      orderBy: { createdAt: 'asc' },
+      where: { tenantId },
       select: { id: true },
     });
 
     if (!existing) {
       return (this.prisma as any).appSetting.create({
-        data: { companyName: dto.companyName ?? 'Nath Sales', ...dto },
+        data: { companyName: dto.companyName ?? 'Nath Sales', tenantId, ...dto },
       });
     }
 
@@ -35,4 +35,3 @@ export class SettingsService {
     });
   }
 }
-

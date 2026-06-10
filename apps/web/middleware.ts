@@ -13,7 +13,9 @@ const PUBLIC_ROUTES = ['/login', '/logout', '/unauthorized', '/onboard'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) return NextResponse.next();
+  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r)) || /^\/[^/]+\/signup$/.test(pathname)) {
+    return NextResponse.next();
+  }
 
   const sessionCookie = request.cookies.get('session');
   if (!sessionCookie) {

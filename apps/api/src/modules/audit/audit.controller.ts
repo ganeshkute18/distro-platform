@@ -3,10 +3,12 @@ import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 
 @ApiTags('Audit')
 @ApiBearerAuth()
 @Roles(Role.OWNER)
+@TenantRequired()
 @Controller('audit')
 export class AuditController {
   constructor(private prisma: PrismaService) {}
@@ -21,9 +23,11 @@ export class AuditController {
     @Query('limit') limit = 20,
     @Query('userId') userId?: string,
     @Query('entity') entity?: string,
+    @CurrentTenant() tenantId?: string,
   ) {
     const skip = (Number(page) - 1) * Number(limit);
     const where = {
+      tenantId,
       ...(userId && { userId }),
       ...(entity && { entity }),
     };

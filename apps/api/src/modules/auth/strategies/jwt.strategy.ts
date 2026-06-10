@@ -41,6 +41,22 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('User not found or deactivated');
     }
 
+    if (payload.tenantId && user.role !== 'PLATFORM_ADMIN') {
+      const membership = await this.prisma.tenantUser.findFirst({
+        where: {
+          tenantId: payload.tenantId,
+          userId: user.id,
+          isActive: true,
+          tenant: { isActive: true },
+        },
+        select: { role: true },
+      });
+      if (!membership) {
+        throw new UnauthorizedException('Tenant membership is inactive or invalid');
+      }
+      user.role = membership.role;
+    }
+
     // Attach tenantId from JWT payload to the user object
     return {
       ...user,

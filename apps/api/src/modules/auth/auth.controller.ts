@@ -1,11 +1,11 @@
-import { Controller, Post, Body, Req, HttpCode, HttpStatus, UseGuards, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Req, HttpCode, HttpStatus, UseGuards, Get, Query, Param } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, SignupCustomerDto, SignupStaffDto, GenerateInvitationDto, VerifyEmailDto, ResendVerificationEmailDto } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { CurrentTenant } from '../../common/decorators/tenant.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { User, Role } from '@prisma/client';
@@ -34,6 +34,13 @@ export class AuthController {
   }
 
   @Public()
+  @Post('signup/customer/:tenantSlug')
+  @HttpCode(HttpStatus.CREATED)
+  signupCustomerForTenant(@Param('tenantSlug') tenantSlug: string, @Body() dto: SignupCustomerDto) {
+    return this.authService.signupCustomerForTenant(dto, tenantSlug);
+  }
+
+  @Public()
   @Post('signup/staff')
   @HttpCode(HttpStatus.CREATED)
   signupStaff(@Body() dto: SignupStaffDto) {
@@ -55,6 +62,7 @@ export class AuthController {
   }
 
   @Roles(Role.OWNER)
+  @TenantRequired()
   @Post('invitations/generate')
   @HttpCode(HttpStatus.CREATED)
   generateInvitation(@CurrentUser() user: User, @Body() dto: GenerateInvitationDto, @CurrentTenant() tenantId: string) {
@@ -62,6 +70,7 @@ export class AuthController {
   }
 
   @Roles(Role.OWNER)
+  @TenantRequired()
   @Get('invitations')
   listInvitations(
     @CurrentUser() user: User,

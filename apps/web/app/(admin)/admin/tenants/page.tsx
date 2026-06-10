@@ -39,8 +39,8 @@ export default function AdminTenantsPage() {
         title="Tenants"
         description="Manage buyer organizations and view tenant status."
         action={
-          <Link href="/admin/tenants/new" className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
-            Add tenant
+          <Link href="/admin/tenants/onboard" className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90">
+            Onboard tenant
           </Link>
         }
       />

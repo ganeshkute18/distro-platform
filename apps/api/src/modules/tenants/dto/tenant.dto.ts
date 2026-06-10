@@ -84,3 +84,10 @@ export class OnboardTenantDto extends CreateTenantDto {
   @MinLength(8)
   ownerPassword: string;
 }
+
+export class ResetTenantUserPasswordDto {
+  @ApiProperty({ description: 'New password' })
+  @IsString()
+  @MinLength(8)
+  password: string;
+}

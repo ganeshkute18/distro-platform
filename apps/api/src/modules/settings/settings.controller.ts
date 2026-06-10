@@ -4,24 +4,24 @@ import { SettingsService } from './settings.service';
 import { UpdateSettingsDto } from './dto/settings.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
-import { Public } from '../../common/decorators/public.decorator';
+import { CurrentTenant, TenantRequired } from '../../common/decorators/tenant.decorator';
 
 @ApiTags('Settings')
 @Controller('settings')
 export class SettingsController {
   constructor(private settingsService: SettingsService) {}
 
-  @Public()
+  @TenantRequired()
   @Get()
-  getSettings() {
-    return this.settingsService.getSettings();
+  getSettings(@CurrentTenant() tenantId: string) {
+    return this.settingsService.getSettings(tenantId);
   }
 
   @ApiBearerAuth()
   @Roles(Role.OWNER)
+  @TenantRequired()
   @Patch()
-  updateSettings(@Body() dto: UpdateSettingsDto) {
-    return this.settingsService.updateSettings(dto);
+  updateSettings(@Body() dto: UpdateSettingsDto, @CurrentTenant() tenantId: string) {
+    return this.settingsService.updateSettings(dto, tenantId);
   }
 }
-

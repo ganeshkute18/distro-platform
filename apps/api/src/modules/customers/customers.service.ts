@@ -16,9 +16,11 @@ export class CustomersService {
     });
     if (existing) throw new ConflictException('Customer already exists for this tenant');
 
-    // Verify user exists
-    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
-    if (!user) throw new NotFoundException('User not found');
+    const membership = await this.prisma.tenantUser.findFirst({
+      where: { tenantId, userId: dto.userId, role: 'CUSTOMER', isActive: true },
+      select: { id: true },
+    });
+    if (!membership) throw new NotFoundException('Active customer user not found in this tenant');
 
     return this.prisma.customer.create({
       data: {

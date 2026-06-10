@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsInt, IsBoolean, Min } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
 import { CustomerType } from '@prisma/client';
 
 export class CreateCustomerDto {
@@ -29,7 +29,7 @@ export class CreateCustomerDto {
   notes?: string;
 }
 
-export class UpdateCustomerDto extends PartialType(CreateCustomerDto) {
+export class UpdateCustomerDto extends PartialType(OmitType(CreateCustomerDto, ['userId'] as const)) {
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()

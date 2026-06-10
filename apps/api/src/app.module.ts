@@ -4,7 +4,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
-import { UserManagementModule } from './modules/user-management/user-management.module';
 import { AgenciesModule } from './modules/agencies/agencies.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
@@ -29,7 +28,6 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     PrismaModule,
     AuthModule,
     UsersModule,
-    UserManagementModule,
     AgenciesModule,
     CategoriesModule,
     ProductsModule,
