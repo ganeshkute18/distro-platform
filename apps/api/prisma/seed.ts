@@ -1,39 +1,59 @@
-import { PrismaClient, Role, UnitType, ApprovalStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  Role,
+  UnitType,
+  ApprovalStatus,
+  TenantPlan,
+  CustomerType,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-
-/**
- * Development Seed File
- * 
- * ⚠️  IMPORTANT: This seed file includes SAMPLE CREDENTIALS FOR TESTING ONLY
- * 
- * Use this for:
- * ✅ Local development
- * ✅ Testing features
- * ✅ Internal QA
- * ❌ NOT for production (remove all test accounts before going live)
- * 
- * For Production:
- * ✅ Use setup-owner.ts to create the first real owner account
- * ✅ Use self-registration (POST /auth/signup/customer)
- * ✅ Use staff invitations (POST /auth/invitations/generate)
- * 
- * Test Accounts:
- * - owner@distro.com (owner)
- * - staff@distro.com (staff)
- * - customer@distro.com (customer)
- */
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database with test data...');
+  console.log('🌱 Seeding DistroPro database...');
 
   const passwordHash = await bcrypt.hash('Password@123', 12);
 
-  // Create Test Owner
-  const owner = await prisma.user.upsert({
-    where: { email: 'owner@distro.com' },
+  // ============================================================
+  // 1. CREATE TENANT
+  // ============================================================
+
+  const tenant = await prisma.tenant.upsert({
+    where: {
+      slug: 'distro-demo',
+    },
     update: {},
+    create: {
+      name: 'Distro Demo Agency',
+      slug: 'distro-demo',
+      contactEmail: 'owner@distro.com',
+      contactPhone: '+919999900000',
+      address: '12, Market Road',
+      city: 'Pune',
+      state: 'Maharashtra',
+      pincode: '411001',
+      plan: TenantPlan.PROFESSIONAL,
+      isActive: true,
+    },
+  });
+
+  console.log(`✅ Tenant created: ${tenant.name}`);
+
+  // ============================================================
+  // 2. CREATE OWNER
+  // ============================================================
+
+  const owner = await prisma.user.upsert({
+    where: {
+      email: 'owner@distro.com',
+    },
+    update: {
+      role: Role.OWNER,
+      isActive: true,
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+    },
     create: {
       email: 'owner@distro.com',
       name: 'Platform Owner',
@@ -41,15 +61,47 @@ async function main() {
       role: Role.OWNER,
       phone: '+919999900000',
       isActive: true,
-      emailVerified: true, // Test user, already verified
-      approvalStatus: 'APPROVED' as ApprovalStatus, // Auto-approved for testing
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
     },
   });
 
-  // Create Test Staff
+  // Connect owner to tenant
+  await prisma.tenantUser.upsert({
+    where: {
+      tenantId_userId: {
+        tenantId: tenant.id,
+        userId: owner.id,
+      },
+    },
+    update: {
+      role: Role.OWNER,
+      isActive: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      userId: owner.id,
+      role: Role.OWNER,
+      isActive: true,
+    },
+  });
+
+  console.log('✅ Owner created');
+
+  // ============================================================
+  // 3. CREATE STAFF
+  // ============================================================
+
   const staff = await prisma.user.upsert({
-    where: { email: 'staff@distro.com' },
-    update: {},
+    where: {
+      email: 'staff@distro.com',
+    },
+    update: {
+      role: Role.STAFF,
+      isActive: true,
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+    },
     create: {
       email: 'staff@distro.com',
       name: 'Warehouse Staff',
@@ -57,15 +109,46 @@ async function main() {
       role: Role.STAFF,
       phone: '+919999900001',
       isActive: true,
-      emailVerified: true, // Test user, already verified
-      approvalStatus: 'APPROVED' as ApprovalStatus, // Auto-approved for testing
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
     },
   });
 
-  // Create Test Customer
-  const customer = await prisma.user.upsert({
-    where: { email: 'customer@distro.com' },
-    update: {},
+  await prisma.tenantUser.upsert({
+    where: {
+      tenantId_userId: {
+        tenantId: tenant.id,
+        userId: staff.id,
+      },
+    },
+    update: {
+      role: Role.STAFF,
+      isActive: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      userId: staff.id,
+      role: Role.STAFF,
+      isActive: true,
+    },
+  });
+
+  console.log('✅ Staff created');
+
+  // ============================================================
+  // 4. CREATE CUSTOMER USER
+  // ============================================================
+
+  const customerUser = await prisma.user.upsert({
+    where: {
+      email: 'customer@distro.com',
+    },
+    update: {
+      role: Role.CUSTOMER,
+      isActive: true,
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
+    },
     create: {
       email: 'customer@distro.com',
       name: 'Raj Provisions',
@@ -75,14 +158,66 @@ async function main() {
       businessName: 'Raj General Store',
       address: '12, Market Road, Pune 411001',
       isActive: true,
-      emailVerified: true, // Test user, already verified
-      approvalStatus: 'APPROVED' as ApprovalStatus, // Customers auto-approve
+      emailVerified: true,
+      approvalStatus: ApprovalStatus.APPROVED,
     },
   });
 
-  // Create Agency
+  // Connect customer to tenant
+  await prisma.tenantUser.upsert({
+    where: {
+      tenantId_userId: {
+        tenantId: tenant.id,
+        userId: customerUser.id,
+      },
+    },
+    update: {
+      role: Role.CUSTOMER,
+      isActive: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      userId: customerUser.id,
+      role: Role.CUSTOMER,
+      isActive: true,
+    },
+  });
+
+  // Create tenant-scoped Customer record
+  const customer = await prisma.customer.upsert({
+    where: {
+      tenantId_userId: {
+        tenantId: tenant.id,
+        userId: customerUser.id,
+      },
+    },
+    update: {
+      customerType: CustomerType.RETAILER,
+      isActive: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      userId: customerUser.id,
+      customerType: CustomerType.RETAILER,
+      creditLimit: 1000000,
+      paymentTerms: 30,
+      isActive: true,
+    },
+  });
+
+  console.log('✅ Customer created');
+
+  // ============================================================
+  // 5. CREATE AGENCY
+  // ============================================================
+
   const agency = await prisma.agency.upsert({
-    where: { name: 'Hindustan Unilever' },
+    where: {
+      tenantId_name: {
+        tenantId: tenant.id,
+        name: 'Hindustan Unilever',
+      },
+    },
     update: {},
     create: {
       name: 'Hindustan Unilever',
@@ -90,41 +225,81 @@ async function main() {
       contactName: 'Priya Sharma',
       contactEmail: 'priya@hul.com',
       contactPhone: '+912022000000',
+      tenantId: tenant.id,
     },
   });
 
-  // Create Category
+  console.log('✅ Agency created');
+
+  // ============================================================
+  // 6. CREATE CATEGORY
+  // ============================================================
+
   const category = await prisma.category.upsert({
-    where: { slug: 'personal-care' },
+    where: {
+      tenantId_slug: {
+        tenantId: tenant.id,
+        slug: 'personal-care',
+      },
+    },
     update: {},
     create: {
       name: 'Personal Care',
       slug: 'personal-care',
       description: 'Soaps, shampoos, skincare',
+      tenantId: tenant.id,
     },
   });
 
-  // Create Product
+  console.log('✅ Category created');
+
+  // ============================================================
+  // 7. CREATE PRODUCT
+  // ============================================================
+
   const product = await prisma.product.upsert({
-    where: { sku: 'HUL-LUX-001' },
+    where: {
+      tenantId_sku: {
+        tenantId: tenant.id,
+        sku: 'HUL-LUX-001',
+      },
+    },
     update: {},
     create: {
       sku: 'HUL-LUX-001',
       name: 'Lux Soap Bar (Pack of 4)',
       description: 'Premium bathing soap, rose fragrance',
+      imageUrls: [],
       unitType: UnitType.PACKET,
       unitsPerCase: 4,
-      pricePerUnit: 8000, // ₹80 in paise
+      pricePerUnit: 8000,
       taxPercent: 18,
+      hsnCode: '340111',
+      brand: 'Lux',
+      tags: ['soap', 'personal-care', 'lux'],
+      isActive: true,
+      isFeatured: true,
+      minOrderQty: 1,
       agencyId: agency.id,
       categoryId: category.id,
+      tenantId: tenant.id,
     },
   });
 
-  // Create Inventory
+  console.log('✅ Product created');
+
+  // ============================================================
+  // 8. CREATE INVENTORY
+  // ============================================================
+
   await prisma.inventory.upsert({
-    where: { productId: product.id },
-    update: {},
+    where: {
+      productId: product.id,
+    },
+    update: {
+      totalStock: 500,
+      lowStockThreshold: 50,
+    },
     create: {
       productId: product.id,
       totalStock: 500,
@@ -133,83 +308,100 @@ async function main() {
     },
   });
 
-  // Create Sample Invitations for Testing
+  console.log('✅ Inventory created');
+
+  // ============================================================
+  // 9. CREATE APP SETTINGS
+  // ============================================================
+
+  await prisma.appSetting.upsert({
+    where: {
+      tenantId: tenant.id,
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      companyName: 'Distro Demo Agency',
+    },
+  });
+
+  console.log('✅ App settings created');
+
+  // ============================================================
+  // 10. CREATE STAFF INVITATIONS
+  // ============================================================
+
+  await prisma.invitation.deleteMany({
+    where: {
+      tenantId: tenant.id,
+    },
+  });
+
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
 
-  await prisma.invitation.deleteMany({}); // Clear existing
-  
-  const invitation1 = await prisma.invitation.create({
+  await prisma.invitation.create({
     data: {
       code: 'STAFF_ABC123_TEST001',
       role: Role.STAFF,
       email: 'newstaff@example.com',
       expiresAt: nextWeek,
       createdBy: owner.id,
+      tenantId: tenant.id,
       isUsed: false,
     },
   });
 
-  const invitation2 = await prisma.invitation.create({
+  await prisma.invitation.create({
     data: {
       code: 'STAFF_DEF456_TEST002',
       role: Role.STAFF,
-      expiresAt: tomorrow, // Expires tomorrow
+      expiresAt: tomorrow,
       createdBy: owner.id,
+      tenantId: tenant.id,
       isUsed: false,
     },
   });
 
-  console.log('✅ Seed complete!\n');
-  console.log('🚨 WARNING: This is test data. Remove before production!');
-  
+  console.log('✅ Staff invitations created');
+
+  // ============================================================
+  // DONE
+  // ============================================================
+
   console.log('\n' + '='.repeat(60));
-  console.log('  TEST CREDENTIALS FOR LOCAL DEVELOPMENT');
-  console.log('='.repeat(60) + '\n');
-  
-  console.log('📧 OWNER Account:');
+  console.log('✅ DISTROPRO SEED COMPLETE');
+  console.log('='.repeat(60));
+
+  console.log('\n👑 OWNER');
   console.log('   Email:    owner@distro.com');
   console.log('   Password: Password@123');
-  console.log('   Access:   Full system, user management, invitations\n');
-  
-  console.log('📧 STAFF Account:');
+
+  console.log('\n👷 STAFF');
   console.log('   Email:    staff@distro.com');
   console.log('   Password: Password@123');
-  console.log('   Access:   Orders, inventory, reports\n');
-  
-  console.log('📧 CUSTOMER Account:');
+
+  console.log('\n🏪 CUSTOMER');
   console.log('   Email:    customer@distro.com');
   console.log('   Password: Password@123');
-  console.log('   Access:   Catalog, orders, profile\n');
 
-  console.log('📨 Sample Invitation Codes (For Staff Signup):');
-  console.log(`   1️⃣  ${invitation1.code}`);
-  console.log(`       📧 Pre-assigned email: ${invitation1.email}`);
-  console.log(`       ⏰ Expires: ${invitation1.expiresAt.toDateString()}\n`);
-  console.log(`   2️⃣  ${invitation2.code}`);
-  console.log(`       📧 Any email can use this`);
-  console.log(`       ⏰ Expires: ${invitation2.expiresAt.toDateString()}\n`);
+  console.log('\n🏢 TENANT');
+  console.log(`   Name: ${tenant.name}`);
+  console.log(`   Slug: ${tenant.slug}`);
 
-  console.log('🌐 API Endpoints:');
-  console.log('   POST /api/v1/auth/login                    - Login');
-  console.log('   POST /api/v1/auth/verify-email             - Verify email');
-  console.log('   POST /api/v1/auth/resend-verification-email - Resend verification');
-  console.log('   POST /api/v1/auth/signup/customer          - Customer Signup (Public)');
-  console.log('   POST /api/v1/auth/signup/staff             - Staff Signup (Invitation Required)');
-  console.log('   POST /api/v1/auth/invitations/generate     - Generate Invitation (Owner Only)');
-  console.log('   GET  /api/v1/auth/invitations              - List Invitations (Owner Only)');
-  console.log('   GET  /api/v1/users                         - List Users (Owner Only)');
-  console.log('   POST /api/v1/users/:userId/approve         - Approve User (Owner Only)');
-  console.log('   POST /api/v1/users/:userId/reject          - Reject User (Owner Only)\n');
-  
-  console.log('🚀 Get Swagger Docs at: http://localhost:4000/api/docs\n');
+  console.log('\n📦 PRODUCT');
+  console.log(`   SKU: ${product.sku}`);
+  console.log(`   Name: ${product.name}`);
+
+  console.log('\n🚀 Database is ready for testing.');
 }
 
 main()
   .catch((e) => {
+    console.error('❌ Seed failed:');
     console.error(e);
     process.exit(1);
   })
