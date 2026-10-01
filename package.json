@@ -1,9 +1,6 @@
 {
   "name": "distro-platform",
   "private": true,
-  "engines": {
-  "node": "24.x"
-},
   "packageManager": "npm@10.0.0",
   "workspaces": [
     "apps/*",
@@ -28,7 +25,7 @@
     "turbo": "^1.13.4"
   },
   "engines": {
-    "node": "20.x",
+    "node": "24.x",
     "npm": ">=10.0.0"
   },
   "dependencies": {
