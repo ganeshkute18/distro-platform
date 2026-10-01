@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -10,6 +10,7 @@ import * as cookieParser from 'cookie-parser';
 
 function ensureDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL?.trim();
+
   if (databaseUrl) return;
 
   throw new Error(
@@ -27,51 +28,36 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
- app.enableCors({
-  origin: [
-    'https://distro-platform-1533n585-ganeshyuvraj18-9776s-projects.vercel.app',
-    'https://distro-platform.vercel.app',
-  ],
-  credentials: true,
-});
+
+  // ============================================================
+  // CORS
+  // ============================================================
+  // Reflect the requesting origin.
+  // This allows Vercel preview URLs to work even when their
+  // deployment URL changes.
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Tenant-ID',
+      'X-Tenant-Slug',
+      'Accept',
+    ],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Number'],
+    optionsSuccessStatus: 200,
+  });
 
   const configService = app.get(ConfigService);
-  // Render.com injects $PORT — use that first, then API_PORT, then 4000
-  const port = process.env.PORT || configService.get<number>('API_PORT', 4000);
-  
-  // Parse CORS_ORIGINS: comma-separated list with wildcard support
-  // Examples:
-  //   'http://localhost:3000,https://example.vercel.app' (exact matches)
-  //   'http://localhost:3000,https://*.vercel.app' (with wildcards)
-  //   '*' (allow all - dev only)
-  // For Railway production, set: CORS_ORIGINS="https://distro-platform-web.vercel.app,https://*.vercel.app"
-  const corsOriginConfig = configService.get<string>(
-    'CORS_ORIGINS',
-    'http://localhost:3000,http://localhost:3001',
-  );
 
-  // Function to check if origin matches allowed patterns (supports wildcards)
-  function isOriginAllowed(origin: string, allowedPatterns: string[]): boolean {
-    if (allowedPatterns.includes('*')) return true;
-    
-    return allowedPatterns.some(pattern => {
-      if (pattern === origin) return true;
-      
-      // Support wildcard patterns like 'https://*.vercel.app'
-      if (pattern.includes('*')) {
-        const regexPattern = pattern
-          .replace(/\./g, '\\.')
-          .replace(/\*/g, '[^/]+');
-        return new RegExp(`^${regexPattern}$`).test(origin);
-      }
-      
-      return false;
-    });
-  }
+  // Railway provides PORT.
+  // Fall back to API_PORT and then 4000 for local development.
+  const port =
+    process.env.PORT || configService.get<number>('API_PORT', 4000);
 
-  const allowedOrigins = corsOriginConfig === '*' ? ['*'] : corsOriginConfig.split(',').map(o => o.trim());
-
-  // Explicit platform-level healthcheck path (not behind API version prefix).
+  // Healthcheck
   app.use('/health', (_req: Request, res: Response) => {
     res.status(200).json({
       status: 'ok',
@@ -80,46 +66,21 @@ async function bootstrap() {
     });
   });
 
-  // Middleware
+  // Cookie parser
   app.use(cookieParser());
-
-  // CORS configuration — permissive defaults for local/staging, restrict for production
-  // Log allowed origins for debugging
-  console.log('✅ CORS Configuration:');
-  console.log(`   Allowed origins: ${allowedOrigins.join(', ')}`);
-  console.log(`   Credentials: true`);
-  
-  app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile or curl requests)
-      if (!origin) {
-        return callback(null, true);
-      }
-      
-      if (isOriginAllowed(origin, allowedOrigins)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: Origin "${origin}" not allowed`), false);
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Tenant-Slug', 'Accept'],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Number'],
-    preflightContinue: false,
-    optionsSuccessStatus: 200,
-  });
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // Global pipes
+  // Global validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
@@ -137,13 +98,19 @@ async function bootstrap() {
       .setVersion('1.0')
       .addBearerAuth()
       .build();
+
     const document = SwaggerModule.createDocument(app, config);
+
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  // '0.0.0.0' is required by Railway, Render, and other cloud platforms
+  // Railway requires 0.0.0.0
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 API running on port ${port} (${process.env.NODE_ENV || 'development'})`);
+
+  console.log(
+    `🚀 API running on port ${port} (${process.env.NODE_ENV || 'development'})`,
+  );
+
   if (process.env.NODE_ENV !== 'production') {
     console.log(`📚 Swagger docs at http://localhost:${port}/api/docs`);
   }
