@@ -27,10 +27,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
-  app.enableCors({
+ app.enableCors({
   origin: [
+    'https://distro-platform-1533n585-ganeshyuvraj18-9776s-projects.vercel.app',
     'https://distro-platform.vercel.app',
-    'https://distro-platform-7av26dluz-ganeshyuvraj18-9776s-projects.vercel.app',
   ],
   credentials: true,
 });
